@@ -4,7 +4,7 @@ const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
 const baseURL = process.env.GROQ_API_KEY ? "https://api.groq.com/openai/v1" : undefined;
 
 export const openai = new OpenAI({
-  apiKey,
+  apiKey: apiKey || "dummy-key",
   baseURL,
 });
 
