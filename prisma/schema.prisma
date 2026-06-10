@@ -18,6 +18,7 @@ model Bot {
 
   conversations Conversation[]
   analytics     Analytics[]
+  websites      Website[]
 
   @@map("bots")
 }
@@ -57,4 +58,44 @@ model Analytics {
   bot Bot @relation(fields: [botId], references: [botId])
 
   @@map("analytics")
+}
+
+model Website {
+  id        String    @id @default(uuid())
+  botId     String    @map("bot_id")
+  url       String
+  status    String    @default("crawling") // crawling | ready | error
+  crawledAt DateTime? @map("crawled_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  bot   Bot    @relation(fields: [botId], references: [botId])
+  pages Page[]
+
+  @@unique([botId, url], name: "botId_url")
+  @@map("websites")
+}
+
+model Page {
+  id        String   @id @default(uuid())
+  websiteId String   @map("website_id")
+  url       String
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  website Website @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  chunks  Chunk[]
+
+  @@map("pages")
+}
+
+model Chunk {
+  id        String                       @id @default(uuid())
+  pageId    String                       @map("page_id")
+  content   String
+  embedding Unsupported("vector(1536)")?
+  createdAt DateTime                     @default(now()) @map("created_at")
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@map("chunks")
 }
