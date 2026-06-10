@@ -1,7 +1,15 @@
-import React from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
 
 export default function HomePage() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://your-chatbot.vercel.app";
+  const [baseUrl, setBaseUrl] = useState("https://your-chatbot.vercel.app");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setBaseUrl(window.location.origin);
+    }
+  }, []);
 
   return (
     <main
@@ -57,11 +65,13 @@ export default function HomePage() {
           Try the live demo — a floating chat button should appear in the
           bottom-right corner of this page.
         </p>
-        <script
-          src={`${baseUrl}/widget.js`}
-          data-bot-id="demo"
-          async
-        />
+        {baseUrl !== "https://your-chatbot.vercel.app" && (
+          <script
+            src={`${baseUrl}/widget.js`}
+            data-bot-id="demo"
+            async
+          />
+        )}
       </section>
     </main>
   );
