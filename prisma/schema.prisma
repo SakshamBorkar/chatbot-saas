@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Bot {
+  id            String   @id @default(uuid())
+  botId         String   @unique @map("bot_id")
+  customerName  String   @map("customer_name")
+  active        Boolean  @default(true)
+  theme         String   @default("light")
+  primaryColor  String   @default("#2563eb") @map("primary_color")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  conversations Conversation[]
+  analytics     Analytics[]
+
+  @@map("bots")
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  botId     String   @map("bot_id")
+  sessionId String   @map("session_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  bot      Bot       @relation(fields: [botId], references: [botId])
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String   @map("conversation_id")
+  role           String   // "user" | "assistant"
+  content        String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@map("messages")
+}
+
+model Analytics {
+  id        String   @id @default(uuid())
+  botId     String   @map("bot_id")
+  eventType String   @map("event_type") // widget_loaded | widget_opened | message_sent | message_received
+  sessionId String?  @map("session_id")
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  bot Bot @relation(fields: [botId], references: [botId])
+
+  @@map("analytics")
+}
