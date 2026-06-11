@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from "react";
 
 export default function HomePage() {
-  const [baseUrl, setBaseUrl] = useState("https://your-chatbot.vercel.app");
+  const [baseUrl, setBaseUrl] = useState("https://chatbot-saas-self-three.vercel.app");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setBaseUrl(window.location.origin);
+      if (window.location.hostname === "localhost") {
+        setBaseUrl(window.location.origin);
+      }
     }
   }, []);
 
