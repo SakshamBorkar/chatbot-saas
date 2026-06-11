@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { embedText, searchChunks } from "./embeddings";
-import { openai } from "./ai";
+import { getOpenAIClient } from "./ai";
 
 const SYSTEM_PROMPT = `You are a helpful website assistant. Your job is to answer visitor questions using ONLY the information provided in the context below — which comes directly from this website's content.
 
@@ -51,9 +51,14 @@ export async function ragStream(
     ...messages.map((m) => ({ role: m.role, content: m.content })),
   ];
 
+  const openai = getOpenAIClient();
+  const model = process.env.GROQ_API_KEY
+    ? (process.env.GROQ_MODEL || "llama-3.3-70b-versatile")
+    : "gpt-4o-mini";
+
   // Step 5: Stream response
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model,
     messages: llmMessages,
     stream: true,
     max_tokens: 512,

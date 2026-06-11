@@ -1,10 +1,11 @@
-import { openai } from "./ai";
+import { getOpenAIClient } from "./ai";
 import { db } from "./db";
 
 /**
  * Generate an embedding vector for a single text string.
  */
 export async function embedText(text: string): Promise<number[]> {
+  const openai = getOpenAIClient();
   const res = await openai.embeddings.create({
     model: "text-embedding-3-small",
     input: text,
@@ -19,6 +20,7 @@ export async function embedText(text: string): Promise<number[]> {
 export async function embedBatch(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
 
+  const openai = getOpenAIClient();
   const res = await openai.embeddings.create({
     model: "text-embedding-3-small",
     input: texts,

@@ -1,12 +1,20 @@
 import OpenAI from "openai";
 
-const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
-const baseURL = process.env.GROQ_API_KEY ? "https://api.groq.com/openai/v1" : undefined;
+let openaiInstance: OpenAI | null = null;
 
-export const openai = new OpenAI({
-  apiKey: apiKey || "dummy-key",
-  baseURL,
-});
+export function getOpenAIClient(): OpenAI {
+  if (openaiInstance) return openaiInstance;
+
+  const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+  const baseURL = process.env.GROQ_API_KEY ? "https://api.groq.com/openai/v1" : undefined;
+
+  openaiInstance = new OpenAI({
+    apiKey: apiKey || "dummy-key",
+    baseURL,
+  });
+
+  return openaiInstance;
+}
 
 export type ChatMessage = {
   role: "user" | "assistant" | "system";
@@ -29,6 +37,7 @@ export async function streamChatCompletion(
     ? (process.env.GROQ_MODEL || "llama-3.3-70b-versatile")
     : "gpt-4o-mini";
 
+  const openai = getOpenAIClient();
   const stream = await openai.chat.completions.create({
     model,
     messages: allMessages,
