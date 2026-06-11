@@ -5,6 +5,10 @@ let openaiInstance: OpenAI | null = null;
 export function getOpenAIClient(): OpenAI {
   if (openaiInstance) return openaiInstance;
 
+  console.log("Runtime Environment Check:");
+  console.log("GROQ_API_KEY exists:", !!process.env.GROQ_API_KEY, "Length:", process.env.GROQ_API_KEY?.length ?? 0);
+  console.log("OPENAI_API_KEY exists:", !!process.env.OPENAI_API_KEY, "Length:", process.env.OPENAI_API_KEY?.length ?? 0);
+
   const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
   const baseURL = process.env.GROQ_API_KEY ? "https://api.groq.com/openai/v1" : undefined;
 
