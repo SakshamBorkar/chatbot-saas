@@ -29,22 +29,13 @@ export default async function RagEmbedPage({ searchParams }: RagEmbedPageProps) 
   }
 
   return (
-    <html lang="en">
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <style>{`
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          html, body { height: 100%; overflow: hidden; }
-        `}</style>
-      </head>
-      <body style={{ height: "100vh" }}>
-        <RagChatbot
-          botId={config.botId}
-          primaryColor={config.primaryColor}
-          theme={config.theme}
-          botName={config.name}
-        />
-      </body>
-    </html>
+    <div style={{ width: "100%", height: "100vh", overflow: "hidden" }}>
+      <RagChatbot
+        botId={config.botId}
+        primaryColor={config.primaryColor}
+        theme={config.theme}
+        botName={config.name}
+      />
+    </div>
   );
 }

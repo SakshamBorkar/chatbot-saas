@@ -5,6 +5,7 @@ import { streamChatCompletion, checkRateLimit } from "@/lib/ai";
 import { trackEvent } from "@/lib/analytics";
 import { getClientIP } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
+import { filterMessage } from "@/lib/content-filter";
 
 const ChatRequestSchema = z.object({
   botId: z.string().min(1),
@@ -61,6 +62,36 @@ export async function POST(req: NextRequest) {
   }
 
   const { botId, sessionId, messages } = parsed.data;
+
+  // ── Content filter: check the latest user message ─────────────────────────
+  const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
+  if (lastUserMessage) {
+    const filterResult = await filterMessage(lastUserMessage.content);
+    if (filterResult.blocked) {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ text: filterResult.message })}\n\n`
+            )
+          );
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        },
+      });
+      return new NextResponse(stream, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+          "Access-Control-Allow-Origin": "*",
+          "X-Content-Filtered": "true",
+        },
+      });
+    }
+  }
 
   // Validate bot
   const config = await getBotConfig(botId);

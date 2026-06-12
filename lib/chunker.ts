@@ -32,6 +32,8 @@ export function chunkText(text: string): string[] {
     const chunk = text.slice(start, end).trim();
     if (chunk.length > 50) chunks.push(chunk);
 
+    if (end >= text.length) break;
+
     start = end - CHUNK_OVERLAP;
     if (start >= text.length) break;
   }

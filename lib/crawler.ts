@@ -51,9 +51,9 @@ export function extractText(html: string): string {
  * Resolve and normalise a URL relative to a base,
  * returning null if it's external or not crawlable.
  */
-function resolveInternal(base: URL, href: string): string | null {
+function resolveInternal(base: URL, currentUrl: URL, href: string): string | null {
   try {
-    const resolved = new URL(href, base);
+    const resolved = new URL(href, currentUrl);
     // Only same origin
     if (resolved.origin !== base.origin) return null;
     // Skip anchors, mailto, tel
@@ -69,12 +69,12 @@ function resolveInternal(base: URL, href: string): string | null {
 /**
  * Extract all <a href="..."> links from HTML.
  */
-function extractLinks(html: string, base: URL): string[] {
+function extractLinks(html: string, base: URL, currentUrl: URL): string[] {
   const links: string[] = [];
   const re = /href=["']([^"']+)["']/gi;
   let match: RegExpExecArray | null;
   while ((match = re.exec(html)) !== null) {
-    const resolved = resolveInternal(base, match[1]);
+    const resolved = resolveInternal(base, currentUrl, match[1]);
     if (resolved) links.push(resolved);
   }
   return links;
@@ -118,7 +118,7 @@ export async function crawlWebsite(rootUrl: string): Promise<CrawledPage[]> {
       }
 
       // Discover new links
-      const links = extractLinks(html, base);
+      const links = extractLinks(html, base, new URL(url));
       for (const link of links) {
         if (!visited.has(link) && !queue.includes(link)) {
           queue.push(link);

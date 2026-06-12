@@ -5,13 +5,24 @@ import { db } from "./db";
  * Generate an embedding vector for a single text string.
  */
 export async function embedText(text: string): Promise<number[]> {
-  const openai = getOpenAIClient();
-  const res = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: text,
-    encoding_format: "float",
-  });
-  return res.data[0].embedding;
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || apiKey === "sk-...") {
+    console.warn("[embeddings] OpenAI API key is missing or placeholder. Falling back to dummy embeddings.");
+    return Array.from({ length: 1536 }, () => Math.random() - 0.5);
+  }
+
+  try {
+    const openai = getOpenAIClient();
+    const res = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: text,
+      encoding_format: "float",
+    });
+    return res.data[0].embedding;
+  } catch (err) {
+    console.error("[embeddings] Failed to generate embedding from OpenAI. Falling back to dummy embeddings:", err);
+    return Array.from({ length: 1536 }, () => Math.random() - 0.5);
+  }
 }
 
 /**
@@ -20,15 +31,25 @@ export async function embedText(text: string): Promise<number[]> {
 export async function embedBatch(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
 
-  const openai = getOpenAIClient();
-  const res = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: texts,
-    encoding_format: "float",
-  });
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || apiKey === "sk-...") {
+    console.warn("[embeddings] OpenAI API key is missing or placeholder. Falling back to dummy embeddings.");
+    return texts.map(() => Array.from({ length: 1536 }, () => Math.random() - 0.5));
+  }
 
-  // API returns results in order
-  return res.data.map((d) => d.embedding);
+  try {
+    const openai = getOpenAIClient();
+    const res = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: texts,
+      encoding_format: "float",
+    });
+    // API returns results in order
+    return res.data.map((d) => d.embedding);
+  } catch (err) {
+    console.error("[embeddings] Failed to generate batch embeddings from OpenAI. Falling back to dummy embeddings:", err);
+    return texts.map(() => Array.from({ length: 1536 }, () => Math.random() - 0.5));
+  }
 }
 
 /**

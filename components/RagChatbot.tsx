@@ -101,14 +101,21 @@ export default function RagChatbot({
       const decoder = new TextDecoder();
       if (!reader) throw new Error("No response body");
 
+      let buffer = "";
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split("\n")) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6);
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          if (!trimmed.startsWith("data: ")) continue;
+          const data = trimmed.slice(6);
           if (data === "[DONE]") break;
           try {
             const { text: token } = JSON.parse(data);

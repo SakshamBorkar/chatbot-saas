@@ -1,23 +1,40 @@
 import OpenAI from "openai";
 
 let openaiInstance: OpenAI | null = null;
+let llmInstance: OpenAI | null = null;
+
+// Groq uses the OpenAI-compatible SDK — just swap the baseURL and key
+export const groq = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY || "dummy-key",
+  baseURL: "https://api.groq.com/openai/v1",
+});
 
 export function getOpenAIClient(): OpenAI {
   if (openaiInstance) return openaiInstance;
 
   console.log("Runtime Environment Check:");
-  console.log("GROQ_API_KEY exists:", !!process.env.GROQ_API_KEY, "Length:", process.env.GROQ_API_KEY?.length ?? 0);
   console.log("OPENAI_API_KEY exists:", !!process.env.OPENAI_API_KEY, "Length:", process.env.OPENAI_API_KEY?.length ?? 0);
 
-  const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
-  const baseURL = process.env.GROQ_API_KEY ? "https://api.groq.com/openai/v1" : undefined;
-
   openaiInstance = new OpenAI({
-    apiKey: apiKey || "dummy-key",
-    baseURL,
+    apiKey: process.env.OPENAI_API_KEY || "dummy-key",
   });
 
   return openaiInstance;
+}
+
+export function getLLMClient(): OpenAI {
+  if (llmInstance) return llmInstance;
+
+  console.log("LLM Environment Check:");
+  console.log("GROQ_API_KEY exists:", !!process.env.GROQ_API_KEY, "Length:", process.env.GROQ_API_KEY?.length ?? 0);
+
+  if (process.env.GROQ_API_KEY) {
+    llmInstance = groq;
+  } else {
+    llmInstance = getOpenAIClient();
+  }
+
+  return llmInstance;
 }
 
 export type ChatMessage = {
@@ -41,7 +58,7 @@ export async function streamChatCompletion(
     ? (process.env.GROQ_MODEL || "llama-3.3-70b-versatile")
     : "gpt-4o-mini";
 
-  const openai = getOpenAIClient();
+  const openai = getLLMClient();
   const stream = await openai.chat.completions.create({
     model,
     messages: allMessages,
