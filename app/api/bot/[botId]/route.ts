@@ -3,10 +3,10 @@ import { getBotConfig } from "@/lib/bots";
 import { trackEvent } from "@/lib/analytics";
 import { getClientIP } from "@/lib/rate-limit";
 
-type Params = { params: { botId: string } };
+type Params = { params: Promise<{ botId: string }> };
 
 export async function GET(req: NextRequest, { params }: Params) {
-  const { botId } = params;
+  const { botId } = await params;
 
   if (!botId) {
     return NextResponse.json({ error: "botId is required" }, { status: 400 });

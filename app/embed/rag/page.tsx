@@ -3,11 +3,12 @@ import { getBotConfig } from "@/lib/bots";
 import RagChatbot from "@/components/RagChatbot";
 
 type RagEmbedPageProps = {
-  searchParams: { botId?: string };
+  searchParams: Promise<{ botId?: string }>;
 };
 
 export default async function RagEmbedPage({ searchParams }: RagEmbedPageProps) {
-  const botId = searchParams.botId ?? "";
+  const resolvedSearchParams = await searchParams;
+  const botId = resolvedSearchParams.botId ?? "";
   const config = await getBotConfig(botId);
 
   if (!config) {
