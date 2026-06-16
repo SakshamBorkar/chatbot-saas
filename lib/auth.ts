@@ -1,44 +1,12 @@
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { db } from "./db";
 import { upsertBot } from "./bots";
+import { generateOtp, sendOtpEmail } from "./mailer";
 import { v4 as uuidv4 } from "uuid";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "change-me-in-production";
-const JWT_EXPIRES = "7d";
-
-export type JwtPayload = {
-  userId: string;
-  email: string;
-  botId: string;
-};
-
-// ── Password ──────────────────────────────────────────────────────────────────
-
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12);
-}
-
-export async function verifyPassword(
-  password: string,
-  hash: string
-): Promise<boolean> {
-  return bcrypt.compare(password, hash);
-}
-
-// ── JWT ───────────────────────────────────────────────────────────────────────
-
-export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-}
-
-export function verifyToken(token: string): JwtPayload | null {
-  try {
-    return jwt.verify(token, JWT_SECRET) as JwtPayload;
-  } catch {
-    return null;
-  }
-}
+const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+const MAX_OTP_ATTEMPTS = 5;
+const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 // ── botId generator ───────────────────────────────────────────────────────────
 
@@ -56,18 +24,11 @@ function generateBotId(name: string): string {
   return `${slug}-${suffix}`;
 }
 
-// ── Signup ────────────────────────────────────────────────────────────────────
+// ── Session tokens ─────────────────────────────────────────────────────────────
 
-export type SignupInput = {
-  name: string;
-  phone: string;
-  email: string;
-  password: string;
-};
-
-export type AuthResult =
-  | { success: true; token: string; user: SafeUser }
-  | { success: false; error: string };
+export function generateSessionToken(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
 
 export type SafeUser = {
   id: string;
@@ -78,17 +39,122 @@ export type SafeUser = {
   createdAt: Date;
 };
 
-export async function signup(input: SignupInput): Promise<AuthResult> {
-  const { name, phone, email, password } = input;
+function toSafeUser(user: {
+  id: string; name: string; phone: string; email: string; botId: string; createdAt: Date;
+}): SafeUser {
+  return {
+    id: user.id,
+    name: user.name,
+    phone: user.phone,
+    email: user.email,
+    botId: user.botId,
+    createdAt: user.createdAt,
+  };
+}
 
-  // Check duplicate email
+// ── Step 1: Request OTP (signup) ────────────────────────────────────────────────
+
+export type RequestSignupOtpInput = {
+  name: string;
+  phone: string;
+  email: string;
+};
+
+export type RequestOtpResult =
+  | { success: true }
+  | { success: false; error: string };
+
+/**
+ * Begin signup: store pending user details + OTP, email the code.
+ * No account is created yet — that happens on verification.
+ */
+export async function requestSignupOtp(
+  input: RequestSignupOtpInput
+): Promise<RequestOtpResult> {
+  const { name, phone, email } = input;
+
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) {
-    return { success: false, error: "An account with this email already exists." };
+    return { success: false, error: "An account with this email already exists. Try signing in instead." };
   }
 
-  const passwordHash = await hashPassword(password);
+  const code = generateOtp();
+  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
+
+  // Invalidate any previous pending OTPs for this email+purpose
+  await db.otpCode.updateMany({
+    where: { email, purpose: "signup", consumed: false },
+    data: { consumed: true },
+  });
+
+  await db.otpCode.create({
+    data: {
+      email,
+      code,
+      purpose: "signup",
+      payload: JSON.stringify({ name, phone }),
+      expiresAt,
+    },
+  });
+
+  try {
+    await sendOtpEmail(email, code, "signup");
+  } catch (err) {
+    console.error("[auth] Failed to send signup OTP email:", err);
+    return { success: false, error: "Failed to send verification email. Please try again." };
+  }
+
+  return { success: true };
+}
+
+// ── Step 2: Verify OTP (signup) → create account ────────────────────────────────
+
+export type VerifyOtpResult =
+  | { success: true; user: SafeUser; sessionToken: string }
+  | { success: false; error: string };
+
+export async function verifySignupOtp(
+  email: string,
+  code: string
+): Promise<VerifyOtpResult> {
+  const otp = await db.otpCode.findFirst({
+    where: { email, purpose: "signup", consumed: false },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!otp) {
+    return { success: false, error: "No pending verification found. Please sign up again." };
+  }
+
+  if (otp.expiresAt < new Date()) {
+    return { success: false, error: "This code has expired. Please sign up again." };
+  }
+
+  if (otp.attempts >= MAX_OTP_ATTEMPTS) {
+    return { success: false, error: "Too many incorrect attempts. Please sign up again." };
+  }
+
+  if (otp.code !== code) {
+    await db.otpCode.update({
+      where: { id: otp.id },
+      data: { attempts: { increment: 1 } },
+    });
+    return { success: false, error: "Incorrect code. Please try again." };
+  }
+
+  // Code is correct — consume it and create the account
+  await db.otpCode.update({ where: { id: otp.id }, data: { consumed: true } });
+
+  const { name, phone } = JSON.parse(otp.payload ?? "{}") as { name: string; phone: string };
+
+  // Double-check no race condition created the user already
+  const existing = await db.user.findUnique({ where: { email } });
+  if (existing) {
+    return { success: false, error: "An account with this email already exists. Try signing in instead." };
+  }
+
   const botId = generateBotId(name);
+  const sessionToken = generateSessionToken();
 
   // Create Bot first (User has FK to Bot)
   await upsertBot({
@@ -99,68 +165,117 @@ export async function signup(input: SignupInput): Promise<AuthResult> {
   });
 
   const user = await db.user.create({
-    data: { name, phone, email, passwordHash, botId },
+    data: { name, phone, email, botId, sessionToken },
   });
 
-  const token = signToken({ userId: user.id, email: user.email, botId: user.botId });
-
-  return {
-    success: true,
-    token,
-    user: {
-      id: user.id,
-      name: user.name,
-      phone: user.phone,
-      email: user.email,
-      botId: user.botId,
-      createdAt: user.createdAt,
-    },
-  };
+  return { success: true, user: toSafeUser(user), sessionToken };
 }
 
-// ── Login ─────────────────────────────────────────────────────────────────────
+// ── Step 1: Request OTP (login) ─────────────────────────────────────────────────
 
-export async function login(
-  email: string,
-  password: string
-): Promise<AuthResult> {
+export async function requestLoginOtp(email: string): Promise<RequestOtpResult> {
   const user = await db.user.findUnique({ where: { email } });
   if (!user) {
-    return { success: false, error: "Invalid email or password." };
+    return { success: false, error: "No account found with this email. Please sign up first." };
   }
 
-  const valid = await verifyPassword(password, user.passwordHash);
-  if (!valid) {
-    return { success: false, error: "Invalid email or password." };
+  const code = generateOtp();
+  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
+
+  await db.otpCode.updateMany({
+    where: { email, purpose: "login", consumed: false },
+    data: { consumed: true },
+  });
+
+  await db.otpCode.create({
+    data: { email, code, purpose: "login", expiresAt },
+  });
+
+  try {
+    await sendOtpEmail(email, code, "login");
+  } catch (err) {
+    console.error("[auth] Failed to send login OTP email:", err);
+    return { success: false, error: "Failed to send sign-in email. Please try again." };
   }
 
-  const token = signToken({ userId: user.id, email: user.email, botId: user.botId });
-
-  return {
-    success: true,
-    token,
-    user: {
-      id: user.id,
-      name: user.name,
-      phone: user.phone,
-      email: user.email,
-      botId: user.botId,
-      createdAt: user.createdAt,
-    },
-  };
+  return { success: true };
 }
 
-// ── Middleware helper ─────────────────────────────────────────────────────────
+// ── Step 2: Verify OTP (login) ───────────────────────────────────────────────────
+
+export async function verifyLoginOtp(
+  email: string,
+  code: string
+): Promise<VerifyOtpResult> {
+  const otp = await db.otpCode.findFirst({
+    where: { email, purpose: "login", consumed: false },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!otp) {
+    return { success: false, error: "No pending sign-in request found. Please try again." };
+  }
+
+  if (otp.expiresAt < new Date()) {
+    return { success: false, error: "This code has expired. Please request a new one." };
+  }
+
+  if (otp.attempts >= MAX_OTP_ATTEMPTS) {
+    return { success: false, error: "Too many incorrect attempts. Please request a new code." };
+  }
+
+  if (otp.code !== code) {
+    await db.otpCode.update({
+      where: { id: otp.id },
+      data: { attempts: { increment: 1 } },
+    });
+    return { success: false, error: "Incorrect code. Please try again." };
+  }
+
+  await db.otpCode.update({ where: { id: otp.id }, data: { consumed: true } });
+
+  const user = await db.user.findUnique({ where: { email } });
+  if (!user) {
+    return { success: false, error: "Account not found." };
+  }
+
+  const sessionToken = generateSessionToken();
+  await db.user.update({ where: { id: user.id }, data: { sessionToken } });
+
+  return { success: true, user: toSafeUser(user), sessionToken };
+}
+
+// ── Session lookup ────────────────────────────────────────────────────────────
+
+export async function getUserBySessionToken(token: string): Promise<SafeUser | null> {
+  if (!token) return null;
+  const user = await db.user.findUnique({ where: { sessionToken: token } });
+  return user ? toSafeUser(user) : null;
+}
+
+export async function invalidateSession(token: string): Promise<void> {
+  await db.user.updateMany({
+    where: { sessionToken: token },
+    data: { sessionToken: null },
+  });
+}
+
+// ── Request helper (cookie-based) ───────────────────────────────────────────────
 
 import { NextRequest } from "next/server";
 
-export function getAuthUser(req: NextRequest): JwtPayload | null {
-  const authHeader = req.headers.get("authorization");
-  const token =
-    authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
-  // Also check cookie for SSR pages
-  const cookieToken = req.cookies.get("auth_token")?.value;
-
-  return verifyToken(token ?? cookieToken ?? "");
+export async function getAuthUser(req: NextRequest): Promise<SafeUser | null> {
+  const cookieToken = req.cookies.get("session_token")?.value;
+  const headerToken = req.headers.get("authorization")?.replace("Bearer ", "");
+  const token = cookieToken ?? headerToken;
+  if (!token) return null;
+  return getUserBySessionToken(token);
 }
+
+export const SESSION_COOKIE_OPTS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  maxAge: SESSION_COOKIE_MAX_AGE,
+  path: "/",
+};

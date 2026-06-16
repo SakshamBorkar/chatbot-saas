@@ -3,13 +3,13 @@ import { getAuthUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
-  const payload = getAuthUser(req);
+  const payload = await getAuthUser(req);
   if (!payload) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const user = await db.user.findUnique({
-    where: { id: payload.userId },
+    where: { id: payload.id },
     select: {
       id: true,
       name: true,

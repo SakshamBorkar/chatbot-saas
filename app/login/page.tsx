@@ -1,47 +1,123 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { accessSync } from "node:fs";
+
+type Step = "email" | "otp";
 
 export default function LoginPage() {
-    const router = useRouter();
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [showPass, setShowPass] = useState(false);
-    const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const [step, setStep] = useState<Step>("email");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [loading, setLoading] = useState(false);
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError("");
-        setLoading(true);
+  const handleRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setInfo("");
+    setLoading(true);
 
-        try {
-            const res = await fetch("/api/auth/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({email, password})
-            });
+    try {
+      const res = await fetch("/api/auth/login/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
 
-            const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Something went wrong.");
+        return;
+      }
 
-            if(!res.ok) {
-                setError(data.error ?? "Invalid email or password.")
-                return;
-            }
+      setInfo(`We sent a 6-digit code to ${email}`);
+      setStep("otp");
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            localStorage.setItem("auth_token", data.token);
-            localStorage.setItem("user", JSON.stringify(data.user));
-            router.push("/dashboard")
-        } catch {
-            setError("Network error. Please try again.");
-        } finally {
-            setLoading(false);
-        }
-    };
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-    return (
+    const code = otp.join("");
+    if (code.length !== 6) {
+      setError("Enter the full 6-digit code.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/auth/login/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Verification failed.");
+        return;
+      }
+
+      localStorage.setItem("user", JSON.stringify(data.user));
+      router.push("/dashboard");
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpChange = (idx: number, value: string) => {
+    if (!/^[0-9]?$/.test(value)) return;
+    const next = [...otp];
+    next[idx] = value;
+    setOtp(next);
+    if (value && idx < 5) otpRefs.current[idx + 1]?.focus();
+  };
+
+  const handleOtpKeyDown = (idx: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !otp[idx] && idx > 0) {
+      otpRefs.current[idx - 1]?.focus();
+    }
+  };
+
+  const resendOtp = async () => {
+    setError("");
+    setInfo("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/login/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Could not resend code.");
+        return;
+      }
+      setInfo("A new code has been sent.");
+      setOtp(Array(6).fill(""));
+      otpRefs.current[0]?.focus();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
     <div style={styles.page}>
       {/* Left panel */}
       <div style={styles.left}>
@@ -52,7 +128,7 @@ export default function LoginPage() {
         <div style={styles.leftContent}>
           <h2 style={styles.tagline}>Welcome back.</h2>
           <p style={styles.taglineSub}>
-            Sign in to access your chatbot dashboard, embed snippets, and usage analytics.
+            Sign in with a one-time code sent to your email — no password needed.
           </p>
           <div style={styles.statRow}>
             {[
@@ -72,77 +148,92 @@ export default function LoginPage() {
       {/* Right panel */}
       <div style={styles.right}>
         <div style={styles.card}>
-          <h1 style={styles.title}>Sign in</h1>
-          <p style={styles.subtitle}>
-            Don't have an account?{" "}
-            <a href="/signup" style={styles.link}>Create one free</a>
-          </p>
+          {step === "email" ? (
+            <>
+              <h1 style={styles.title}>Sign in</h1>
+              <p style={styles.subtitle}>
+                Don't have an account?{" "}
+                <a href="/signup" style={styles.link}>Create one free</a>
+              </p>
 
-          <form onSubmit={handleSubmit} style={styles.form}>
-            <div style={styles.fieldWrap}>
-              <label style={styles.label}>Email address</label>
-              <input
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                style={styles.input}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#2563eb";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.12)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#e2e8f0";
-                  e.target.style.boxShadow = "none";
-                }}
-              />
-            </div>
+              <form onSubmit={handleRequestOtp} style={styles.form}>
+                <div style={styles.fieldWrap}>
+                  <label style={styles.label}>Email address</label>
+                  <input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    style={styles.input}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#2563eb";
+                      e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.12)";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#e2e8f0";
+                      e.target.style.boxShadow = "none";
+                    }}
+                  />
+                </div>
 
-            <div style={styles.fieldWrap}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <label style={styles.label}>Password</label>
-                <a href="#" style={{ ...styles.link, fontSize: "12px" }}>
-                  Forgot password?
-                </a>
-              </div>
-              <div style={{ position: "relative" }}>
-                <input
-                  type={showPass ? "text" : "password"}
-                  placeholder="Your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  style={styles.input}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = "#2563eb";
-                    e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.12)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = "#e2e8f0";
-                    e.target.style.boxShadow = "none";
-                  }}
-                />
+                {error && <div style={styles.errorBox}>{error}</div>}
+
                 <button
-                  type="button"
-                  onClick={() => setShowPass((v) => !v)}
-                  style={styles.eyeBtn}
+                  type="submit"
+                  disabled={loading}
+                  style={{ ...styles.submitBtn, opacity: loading ? 0.7 : 1 }}
                 >
-                  {showPass ? "🙈" : "👁️"}
+                  {loading ? "Sending code…" : "Send sign-in code →"}
                 </button>
-              </div>
-            </div>
+              </form>
+            </>
+          ) : (
+            <>
+              <h1 style={styles.title}>Check your email</h1>
+              <p style={styles.subtitle}>
+                Enter the 6-digit code sent to <strong>{email}</strong>
+              </p>
 
-            {error && <div style={styles.errorBox}>{error}</div>}
+              <form onSubmit={handleVerifyOtp} style={styles.form}>
+                <div style={styles.otpRow}>
+                  {otp.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      ref={(el) => { otpRefs.current[idx] = el; }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleOtpChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                      style={styles.otpInput}
+                    />
+                  ))}
+                </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{ ...styles.submitBtn, opacity: loading ? 0.7 : 1 }}
-            >
-              {loading ? "Signing in…" : "Sign in →"}
-            </button>
-          </form>
+                {info && <div style={styles.infoBox}>{info}</div>}
+                {error && <div style={styles.errorBox}>{error}</div>}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{ ...styles.submitBtn, opacity: loading ? 0.7 : 1 }}
+                >
+                  {loading ? "Verifying…" : "Verify & sign in →"}
+                </button>
+
+                <div style={styles.otpActions}>
+                  <button type="button" onClick={resendOtp} style={styles.linkBtn} disabled={loading}>
+                    Resend code
+                  </button>
+                  <button type="button" onClick={() => setStep("email")} style={styles.linkBtn}>
+                    ← Change email
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -246,6 +337,15 @@ const styles: Record<string, React.CSSProperties> = {
     textDecoration: "none",
     fontWeight: 500,
   },
+  linkBtn: {
+    background: "none",
+    border: "none",
+    color: "#2563eb",
+    fontWeight: 500,
+    fontSize: "13px",
+    cursor: "pointer",
+    padding: 0,
+  },
   form: {
     display: "flex",
     flexDirection: "column",
@@ -273,16 +373,26 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: "border-box",
     transition: "border-color 0.15s, box-shadow 0.15s",
   },
-  eyeBtn: {
-    position: "absolute",
-    right: "12px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "16px",
-    padding: 0,
+  otpRow: {
+    display: "flex",
+    gap: "10px",
+    justifyContent: "space-between",
+  },
+  otpInput: {
+    width: "48px",
+    height: "56px",
+    textAlign: "center",
+    fontSize: "22px",
+    fontWeight: 700,
+    borderRadius: "10px",
+    border: "1.5px solid #e2e8f0",
+    outline: "none",
+    color: "#0f172a",
+  },
+  otpActions: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginTop: "-8px",
   },
   errorBox: {
     backgroundColor: "#fef2f2",
@@ -291,6 +401,14 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "8px",
     padding: "10px 14px",
     fontSize: "14px",
+  },
+  infoBox: {
+    backgroundColor: "#eff6ff",
+    border: "1px solid #bfdbfe",
+    color: "#1d4ed8",
+    borderRadius: "8px",
+    padding: "10px 14px",
+    fontSize: "13px",
   },
   submitBtn: {
     padding: "12px",
@@ -304,5 +422,3 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: "4px",
   },
 };
-
-

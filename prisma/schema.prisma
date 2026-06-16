@@ -114,11 +114,30 @@ model User {
   name         String
   phone        String
   email        String   @unique
-  passwordHash String   @map("password_hash")
+  sessionToken String?  @unique @map("session_token")
   botId        String   @unique @map("bot_id")
   createdAt    DateTime @default(now()) @map("created_at")
 
   bot Bot @relation(fields: [botId], references: [botId])
 
   @@map("users")
+}
+
+// ── Email OTP Verification ──────────────────────────────────────────────────
+
+model OtpCode {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  // "signup" | "login"
+  purpose   String
+  // Pending signup details stored as JSON until OTP is verified
+  payload   String?
+  expiresAt DateTime @map("expires_at")
+  consumed  Boolean  @default(false)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email, purpose])
+  @@map("otp_codes")
 }
