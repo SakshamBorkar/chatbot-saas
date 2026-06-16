@@ -19,6 +19,14 @@ function getTransporter() {
  * Send a one-time passcode to the user's email.
  */
 export async function sendOtpEmail(to: string, code: string, purpose: "signup" | "login") {
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+        console.log("\n==================================================");
+        console.log(`🔑 [DEV] OTP CODE FOR ${to.toUpperCase()}: ${code}`);
+        console.log(`Purpose: ${purpose}`);
+        console.log("==================================================\n");
+        return;
+    }
+
     const subject =
         purpose === "signup"
             ? "Verify your email - your code"
