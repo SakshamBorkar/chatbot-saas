@@ -1,25 +1,19 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-let transporter: nodemailer.Transporter | null = null;
+let resend: Resend | null = null;
 
-function getTransporter() {
-    if (!transporter) {
-        transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: process.env.GMAIL_USER,
-                pass: process.env.GMAIL_APP_PASSWORD,
-            },
-        });
+function getResend() {
+    if (!resend) {
+        resend = new Resend(process.env.RESEND_API_KEY);
     }
-    return transporter
+    return resend;  
 }
 
 /**
  * Send a one-time passcode to the user's email.
  */
 export async function sendOtpEmail(to: string, code: string, purpose: "signup" | "login") {
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    if (!process.env.RESEND_API_KEY) {
         console.log("\n==================================================");
         console.log(`🔑 [DEV] OTP CODE FOR ${to.toUpperCase()}: ${code}`);
         console.log(`Purpose: ${purpose}`);
@@ -53,13 +47,19 @@ export async function sendOtpEmail(to: string, code: string, purpose: "signup" |
 
     const text = `Your verification code is: ${code}\n\nThis code expires in 10 minutes. If you didn't request this, you can ignore this email.`;
 
-    await getTransporter().sendMail({
-        from: `"BotSaaS" <${process.env.GMAIL_USER}>`,
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+
+    const { data, error } = await getResend().emails.send({
+        from: fromEmail,
         to,
         subject,
         text,
         html,
     });
+
+    if (error) {
+        throw new Error(error.message);
+    }
 }
 
 /**

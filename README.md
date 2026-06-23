@@ -48,7 +48,6 @@ npm run dev
 | Attribute           | Description                        | Default         |
 |---------------------|------------------------------------|-----------------|
 | `data-bot-id`       | **Required.** Your bot identifier  | —               |
-| `data-theme`        | `"light"` or `"dark"`              | Bot config      |
 | `data-primary-color`| Hex color for header & bubbles     | Bot config      |
 | `data-position`     | `"bottom-right"` or `"bottom-left"`| `"bottom-right"`|
 
@@ -133,7 +132,6 @@ Returns event summary counts for a bot.
 ## Future Enhancements
 
 - Customer dashboard (snippet generator, usage stats)
-- Theme customization via data attributes
 - Custom branding / logos
 - Usage-based billing (Free / Starter / Pro / Enterprise)
 - Redis-backed rate limiting for multi-instance deployments

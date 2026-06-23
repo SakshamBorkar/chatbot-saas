@@ -57,6 +57,7 @@ model Bot {
   botId         String   @unique @map("bot_id")
   customerName  String   @map("customer_name")
   active        Boolean  @default(true)
+  industry      String   @default("general")
   theme         String   @default("light")
   primaryColor  String   @default("#2563eb") @map("primary_color")
   createdAt     DateTime @default(now()) @map("created_at")
@@ -117,6 +118,7 @@ model User {
   sessionToken String?  @unique @map("session_token")
   botId        String   @unique @map("bot_id")
   createdAt    DateTime @default(now()) @map("created_at")
+  industry     String   @default("general")
 
   bot Bot @relation(fields: [botId], references: [botId])
 

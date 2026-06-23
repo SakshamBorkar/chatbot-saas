@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requestSignupOtp } from "@/lib/auth";
+import { INDUSTRIES } from "@/lib/industries";
+
+const industryKeys = INDUSTRIES.map((i) => i.key) as [string, ...string[]];
 
 const Schema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(80),
@@ -8,6 +11,9 @@ const Schema = z.object({
     .string()
     .regex(/^\+?[0-9\s\-()]{7,15}$/, "Enter a valid phone number"),
   email: z.string().email("Enter a valid email address"),
+  industry: z.enum(industryKeys, {
+    errorMap: () => ({ message: "Please select an industry"}),
+  }),
 });
 
 export async function POST(req: NextRequest) {

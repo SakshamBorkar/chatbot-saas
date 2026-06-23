@@ -35,7 +35,6 @@ export default async function EmbedPage({ searchParams }: EmbedPageProps) {
       <Chatbot
         botId={config.botId}
         primaryColor={config.primaryColor}
-        theme={config.theme}
         botName={config.name}
       />
     </div>

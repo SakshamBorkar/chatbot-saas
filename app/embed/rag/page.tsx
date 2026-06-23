@@ -34,7 +34,6 @@ export default async function RagEmbedPage({ searchParams }: RagEmbedPageProps) 
       <RagChatbot
         botId={config.botId}
         primaryColor={config.primaryColor}
-        theme={config.theme}
         botName={config.name}
       />
     </div>

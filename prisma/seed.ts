@@ -7,19 +7,16 @@ async function main() {
     {
       botId: "demo",
       customerName: "Demo Bot",
-      theme: "light",
       primaryColor: "#2563eb",
     },
     {
       botId: "school001",
       customerName: "School Assistant",
-      theme: "light",
       primaryColor: "#16a34a",
     },
     {
       botId: "school002",
       customerName: "University Support",
-      theme: "dark",
       primaryColor: "#7c3aed",
     },
   ];

@@ -12,14 +12,12 @@ export type ChatMessage = {
 type RagChatbotProps = {
   botId: string;
   primaryColor?: string;
-  theme?: "light" | "dark";
   botName?: string;
 };
 
 export default function RagChatbot({
   botId,
   primaryColor = "#2563eb",
-  theme = "light",
   botName = "Assistant",
 }: RagChatbotProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -29,12 +27,11 @@ export default function RagChatbot({
   const [sessionId] = useState(() => crypto.randomUUID());
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const isDark = theme === "dark";
-  const bg = isDark ? "#1f2937" : "#ffffff";
-  const inputBg = isDark ? "#374151" : "#f9fafb";
-  const inputBorder = isDark ? "#4b5563" : "#e5e7eb";
-  const textColor = isDark ? "#f9fafb" : "#111827";
-  const placeholderColor = isDark ? "#9ca3af" : "#6b7280";
+  const bg = "#ffffff";
+  const inputBg = "#f9fafb";
+  const inputBorder = "#e5e7eb";
+  const textColor = "#111827";
+  const placeholderColor = "#6b7280";
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

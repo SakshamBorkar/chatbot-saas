@@ -6,7 +6,6 @@
  *           data-bot-id="customer123" async></script>
  *
  * Optional attributes:
- *   data-theme         "light" | "dark"          (default: loaded from bot config)
  *   data-primary-color "#hex"                     (default: loaded from bot config)
  *   data-position      "bottom-right"|"bottom-left" (default: "bottom-right")
  */
@@ -22,7 +21,6 @@
 
   var BASE_URL = (script.src || "").replace(/\/widget\.js.*$/, "");
   var botId = script.getAttribute("data-bot-id");
-  var overrideTheme = script.getAttribute("data-theme");
   var overrideColor = script.getAttribute("data-primary-color");
   var position = script.getAttribute("data-position") || "bottom-right";
 
@@ -115,7 +113,6 @@
     iframe = document.createElement("iframe");
 
     var params = new URLSearchParams({ botId: botId });
-    if (overrideTheme) params.set("theme", overrideTheme);
     if (overrideColor) params.set("primaryColor", overrideColor);
 
     iframe.src = BASE_URL + "/embed?" + params.toString();

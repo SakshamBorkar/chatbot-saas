@@ -29,7 +29,6 @@ export async function GET(req: NextRequest, { params }: Params) {
     {
       botId: config.botId,
       name: config.name,
-      theme: config.theme,
       primaryColor: config.primaryColor,
     },
     {

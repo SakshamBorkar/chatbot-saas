@@ -30,6 +30,6 @@ export async function GET(req: NextRequest) {
 // Logout — clear the cookie
 export async function DELETE() {
   const res = NextResponse.json({ success: true });
-  res.cookies.set("auth_token", "", { maxAge: 0, path: "/" });
+  res.cookies.set("session_token", "", { maxAge: 0, path: "/" });
   return res;
 }

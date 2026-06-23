@@ -6,14 +6,12 @@ import Chatbot from "./Chatbot";
 type WidgetLauncherProps = {
   botId: string;
   primaryColor?: string;
-  theme?: "light" | "dark";
   botName?: string;
 };
 
 export default function WidgetLauncher({
   botId,
   primaryColor = "#2563eb",
-  theme = "light",
   botName = "Assistant",
 }: WidgetLauncherProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -39,7 +37,6 @@ export default function WidgetLauncher({
           <Chatbot
             botId={botId}
             primaryColor={primaryColor}
-            theme={theme}
             botName={botName}
           />
         </div>

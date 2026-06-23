@@ -1,12 +1,16 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { themeColors } from "@/lib/theme";
 
 type Step = "email" | "otp";
 
 export default function LoginPage() {
   const router = useRouter();
+  const colors = themeColors.light;
+  const [mounted, setMounted] = useState(false);
+
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
@@ -14,6 +18,10 @@ export default function LoginPage() {
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,28 +125,34 @@ export default function LoginPage() {
     }
   };
 
+  const pageStyles = getPageStyles(colors);
+
+  if (!mounted) {
+    return <div style={{ ...pageStyles.page }} />;
+  }
+
   return (
-    <div style={styles.page}>
+    <div style={pageStyles.page}>
       {/* Left panel */}
-      <div style={styles.left}>
-        <div style={styles.brand}>
-          <span style={styles.brandIcon}>🤖</span>
-          <span style={styles.brandName}>BotSaaS</span>
+      <div style={pageStyles.left}>
+        <div style={pageStyles.brand}>
+          <span style={pageStyles.brandIcon}>🤖</span>
+          <span style={pageStyles.brandName}>BotSaaS</span>
         </div>
-        <div style={styles.leftContent}>
-          <h2 style={styles.tagline}>Welcome back.</h2>
-          <p style={styles.taglineSub}>
-            Sign in with a one-time code sent to your email — no password needed.
+        <div style={pageStyles.leftContent}>
+          <h2 style={pageStyles.tagline}>Welcome back.</h2>
+          <p style={pageStyles.taglineSub}>
+            Sign in with a one-time code sent to your email - no password needed.
           </p>
-          <div style={styles.statRow}>
+          <div style={pageStyles.statRow}>
             {[
               { value: "1", label: "script tag to embed" },
               { value: "∞", label: "websites supported" },
               { value: "24/7", label: "always on" },
             ].map((s) => (
-              <div key={s.label} style={styles.stat}>
-                <span style={styles.statValue}>{s.value}</span>
-                <span style={styles.statLabel}>{s.label}</span>
+              <div key={s.label} style={pageStyles.stat}>
+                <span style={pageStyles.statValue}>{s.value}</span>
+                <span style={pageStyles.statLabel}>{s.label}</span>
               </div>
             ))}
           </div>
@@ -146,43 +160,43 @@ export default function LoginPage() {
       </div>
 
       {/* Right panel */}
-      <div style={styles.right}>
-        <div style={styles.card}>
+      <div style={pageStyles.right}>
+        <div style={pageStyles.card}>
           {step === "email" ? (
             <>
-              <h1 style={styles.title}>Sign in</h1>
-              <p style={styles.subtitle}>
+              <h1 style={pageStyles.title}>Sign in</h1>
+              <p style={pageStyles.subtitle}>
                 Don't have an account?{" "}
-                <a href="/signup" style={styles.link}>Create one free</a>
+                <a href="/signup" style={pageStyles.link}>Create one free</a>
               </p>
 
-              <form onSubmit={handleRequestOtp} style={styles.form}>
-                <div style={styles.fieldWrap}>
-                  <label style={styles.label}>Email address</label>
+              <form onSubmit={handleRequestOtp} style={pageStyles.form}>
+                <div style={pageStyles.fieldWrap}>
+                  <label style={pageStyles.label}>Email address</label>
                   <input
                     type="email"
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    style={styles.input}
+                    style={{ ...pageStyles.input, borderColor: colors.border }}
                     onFocus={(e) => {
-                      e.target.style.borderColor = "#2563eb";
-                      e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.12)";
+                      e.currentTarget.style.borderColor = colors.primary;
+                      e.currentTarget.style.boxShadow = `0 0 0 3px ${colors.primary}20`;
                     }}
                     onBlur={(e) => {
-                      e.target.style.borderColor = "#e2e8f0";
-                      e.target.style.boxShadow = "none";
+                      e.currentTarget.style.borderColor = colors.border;
+                      e.currentTarget.style.boxShadow = "none";
                     }}
                   />
                 </div>
 
-                {error && <div style={styles.errorBox}>{error}</div>}
+                {error && <div style={pageStyles.errorBox}>{error}</div>}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  style={{ ...styles.submitBtn, opacity: loading ? 0.7 : 1 }}
+                  style={{ ...pageStyles.submitBtn, opacity: loading ? 0.7 : 1 }}
                 >
                   {loading ? "Sending code…" : "Send sign-in code →"}
                 </button>
@@ -190,13 +204,13 @@ export default function LoginPage() {
             </>
           ) : (
             <>
-              <h1 style={styles.title}>Check your email</h1>
-              <p style={styles.subtitle}>
+              <h1 style={pageStyles.title}>Check your email</h1>
+              <p style={pageStyles.subtitle}>
                 Enter the 6-digit code sent to <strong>{email}</strong>
               </p>
 
-              <form onSubmit={handleVerifyOtp} style={styles.form}>
-                <div style={styles.otpRow}>
+              <form onSubmit={handleVerifyOtp} style={pageStyles.form}>
+                <div style={pageStyles.otpRow}>
                   {otp.map((digit, idx) => (
                     <input
                       key={idx}
@@ -207,27 +221,27 @@ export default function LoginPage() {
                       value={digit}
                       onChange={(e) => handleOtpChange(idx, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                      style={styles.otpInput}
+                      style={{ ...pageStyles.otpInput, borderColor: colors.border }}
                     />
                   ))}
                 </div>
 
-                {info && <div style={styles.infoBox}>{info}</div>}
-                {error && <div style={styles.errorBox}>{error}</div>}
+                {info && <div style={pageStyles.infoBox}>{info}</div>}
+                {error && <div style={pageStyles.errorBox}>{error}</div>}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  style={{ ...styles.submitBtn, opacity: loading ? 0.7 : 1 }}
+                  style={{ ...pageStyles.submitBtn, opacity: loading ? 0.7 : 1 }}
                 >
                   {loading ? "Verifying…" : "Verify & sign in →"}
                 </button>
 
-                <div style={styles.otpActions}>
-                  <button type="button" onClick={resendOtp} style={styles.linkBtn} disabled={loading}>
+                <div style={pageStyles.otpActions}>
+                  <button type="button" onClick={resendOtp} style={pageStyles.linkBtn} disabled={loading}>
                     Resend code
                   </button>
-                  <button type="button" onClick={() => setStep("email")} style={styles.linkBtn}>
+                  <button type="button" onClick={() => setStep("email")} style={pageStyles.linkBtn}>
                     ← Change email
                   </button>
                 </div>
@@ -240,185 +254,190 @@ export default function LoginPage() {
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    display: "flex",
-    minHeight: "100vh",
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    backgroundColor: "#f8fafc",
-  },
-  left: {
-    width: "44%",
-    backgroundColor: "#1e293b",
-    padding: "48px",
-    display: "flex",
-    flexDirection: "column",
-  },
-  brand: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    marginBottom: "64px",
-  },
-  brandIcon: { fontSize: "28px" },
-  brandName: {
-    fontSize: "22px",
-    fontWeight: 700,
-    color: "#f8fafc",
-    letterSpacing: "-0.5px",
-  },
-  leftContent: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    gap: "24px",
-  },
-  tagline: {
-    fontSize: "40px",
-    fontWeight: 700,
-    color: "#f8fafc",
-    lineHeight: 1.1,
-    letterSpacing: "-1.5px",
-    margin: 0,
-  },
-  taglineSub: {
-    fontSize: "16px",
-    color: "#94a3b8",
-    lineHeight: 1.7,
-    margin: 0,
-    maxWidth: "340px",
-  },
-  statRow: {
-    display: "flex",
-    gap: "32px",
-    marginTop: "24px",
-  },
-  stat: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "2px",
-  },
-  statValue: {
-    fontSize: "28px",
-    fontWeight: 700,
-    color: "#f8fafc",
-    letterSpacing: "-1px",
-  },
-  statLabel: {
-    fontSize: "12px",
-    color: "#64748b",
-  },
-  right: {
-    flex: 1,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "48px 24px",
-  },
-  card: {
-    width: "100%",
-    maxWidth: "400px",
-  },
-  title: {
-    fontSize: "32px",
-    fontWeight: 700,
-    color: "#0f172a",
-    letterSpacing: "-1px",
-    margin: "0 0 8px",
-  },
-  subtitle: {
-    fontSize: "14px",
-    color: "#64748b",
-    margin: "0 0 36px",
-  },
-  link: {
-    color: "#2563eb",
-    textDecoration: "none",
-    fontWeight: 500,
-  },
-  linkBtn: {
-    background: "none",
-    border: "none",
-    color: "#2563eb",
-    fontWeight: 500,
-    fontSize: "13px",
-    cursor: "pointer",
-    padding: 0,
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "20px",
-  },
-  fieldWrap: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "6px",
-  },
-  label: {
-    fontSize: "13px",
-    fontWeight: 600,
-    color: "#374151",
-  },
-  input: {
-    padding: "10px 14px",
-    borderRadius: "8px",
-    border: "1.5px solid #e2e8f0",
-    fontSize: "15px",
-    color: "#0f172a",
-    backgroundColor: "#fff",
-    outline: "none",
-    width: "100%",
-    boxSizing: "border-box",
-    transition: "border-color 0.15s, box-shadow 0.15s",
-  },
-  otpRow: {
-    display: "flex",
-    gap: "10px",
-    justifyContent: "space-between",
-  },
-  otpInput: {
-    width: "48px",
-    height: "56px",
-    textAlign: "center",
-    fontSize: "22px",
-    fontWeight: 700,
-    borderRadius: "10px",
-    border: "1.5px solid #e2e8f0",
-    outline: "none",
-    color: "#0f172a",
-  },
-  otpActions: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginTop: "-8px",
-  },
-  errorBox: {
-    backgroundColor: "#fef2f2",
-    border: "1px solid #fecaca",
-    color: "#dc2626",
-    borderRadius: "8px",
-    padding: "10px 14px",
-    fontSize: "14px",
-  },
-  infoBox: {
-    backgroundColor: "#eff6ff",
-    border: "1px solid #bfdbfe",
-    color: "#1d4ed8",
-    borderRadius: "8px",
-    padding: "10px 14px",
-    fontSize: "13px",
-  },
-  submitBtn: {
-    padding: "12px",
-    borderRadius: "8px",
-    backgroundColor: "#2563eb",
-    color: "#fff",
-    fontSize: "15px",
-    fontWeight: 600,
-    border: "none",
-    cursor: "pointer",
-    marginTop: "4px",
-  },
-};
+function getPageStyles(colors: typeof themeColors.light) {
+  return {
+    page: {
+      display: "flex" as const,
+      minHeight: "100vh" as const,
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' as const,
+      backgroundColor: colors.bg,
+    },
+    left: {
+      width: "44%" as const,
+      backgroundColor: "#1e293b",
+      padding: "48px",
+      display: "flex" as const,
+      flexDirection: "column" as const,
+    },
+    brand: {
+      display: "flex" as const,
+      alignItems: "center" as const,
+      gap: "10px",
+      marginBottom: "64px",
+    },
+    brandIcon: { fontSize: "28px" },
+    brandName: {
+      fontSize: "22px",
+      fontWeight: 700,
+      color: "#f8fafc",
+      letterSpacing: "-0.5px",
+    },
+    leftContent: {
+      flex: 1,
+      display: "flex" as const,
+      flexDirection: "column" as const,
+      justifyContent: "center" as const,
+      gap: "24px",
+    },
+    tagline: {
+      fontSize: "40px",
+      fontWeight: 700,
+      color: "#f8fafc",
+      lineHeight: 1.1,
+      letterSpacing: "-1.5px",
+      margin: 0,
+    },
+    taglineSub: {
+      fontSize: "16px",
+      color: "#94a3b8",
+      lineHeight: 1.7,
+      margin: 0,
+      maxWidth: "340px",
+    },
+    statRow: {
+      display: "flex" as const,
+      gap: "32px",
+      marginTop: "24px",
+    },
+    stat: {
+      display: "flex" as const,
+      flexDirection: "column" as const,
+      gap: "2px",
+    },
+    statValue: {
+      fontSize: "28px",
+      fontWeight: 700,
+      color: "#f8fafc",
+      letterSpacing: "-1px",
+    },
+    statLabel: {
+      fontSize: "12px",
+      color: "#64748b",
+    },
+    right: {
+      flex: 1,
+      display: "flex" as const,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      padding: "48px 24px",
+      backgroundColor: colors.bg,
+    },
+    card: {
+      width: "100%" as const,
+      maxWidth: "400px" as const,
+    },
+    title: {
+      fontSize: "32px",
+      fontWeight: 700,
+      color: colors.text,
+      letterSpacing: "-1px",
+      margin: "0 0 8px",
+    },
+    subtitle: {
+      fontSize: "14px",
+      color: colors.textSecondary,
+      margin: "0 0 36px",
+    },
+    link: {
+      color: colors.primary,
+      textDecoration: "none",
+      fontWeight: 500,
+    },
+    linkBtn: {
+      background: "none",
+      border: "none",
+      color: colors.primary,
+      fontWeight: 500,
+      fontSize: "13px",
+      cursor: "pointer",
+      padding: 0,
+    },
+    form: {
+      display: "flex" as const,
+      flexDirection: "column" as const,
+      gap: "20px",
+    },
+    fieldWrap: {
+      display: "flex" as const,
+      flexDirection: "column" as const,
+      gap: "6px",
+    },
+    label: {
+      fontSize: "13px",
+      fontWeight: 600,
+      color: colors.text,
+    },
+    input: {
+      padding: "10px 14px",
+      borderRadius: "8px",
+      border: `1.5px solid ${colors.border}`,
+      fontSize: "15px",
+      color: colors.text,
+      backgroundColor: colors.bgSecondary,
+      outline: "none",
+      width: "100%" as const,
+      boxSizing: "border-box" as const,
+      transition: "border-color 0.15s, box-shadow 0.15s",
+    },
+    otpRow: {
+      display: "flex" as const,
+      gap: "10px",
+      justifyContent: "space-between" as const,
+    },
+    otpInput: {
+      width: "48px" as const,
+      height: "56px" as const,
+      textAlign: "center" as const,
+      fontSize: "22px",
+      fontWeight: 700,
+      borderRadius: "10px",
+      border: `1.5px solid ${colors.border}`,
+      outline: "none",
+      color: colors.text,
+      backgroundColor: colors.bgSecondary,
+    },
+    otpActions: {
+      display: "flex" as const,
+      justifyContent: "space-between" as const,
+      marginTop: "-8px",
+    },
+    errorBox: {
+      backgroundColor: colors.error + "20",
+      border: `1px solid ${colors.error}60`,
+      color: colors.error,
+      borderRadius: "8px",
+      padding: "10px 14px",
+      fontSize: "14px",
+    },
+    infoBox: {
+      backgroundColor: colors.primary + "20",
+      border: `1px solid ${colors.primary}60`,
+      color: colors.primary,
+      borderRadius: "8px",
+      padding: "10px 14px",
+      fontSize: "13px",
+    },
+    submitBtn: {
+      padding: "12px",
+      borderRadius: "8px",
+      backgroundColor: colors.primary,
+      color: "#fff",
+      fontSize: "15px",
+      fontWeight: 600,
+      border: "none",
+      cursor: "pointer",
+      marginTop: "4px",
+    },
+  };
+}
+

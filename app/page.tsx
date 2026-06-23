@@ -219,7 +219,7 @@ export default function HomePage() {
             <div style={{ ...styles.featureIcon, backgroundColor: "#fef2f2", color: "#ef4444" }}>🎨</div>
             <h3 style={styles.featureTitle}>Brand Customization</h3>
             <p style={styles.featureDesc}>
-              Personalize primary colors, bot avatar name, and pick between dark or light themes to match your brand's unique identity.
+              Personalize primary colors and bot avatar name to match your brand's unique identity.
             </p>
           </div>
 

@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { embedText, searchChunks } from "./embeddings";
 import { getLLMClient } from "./ai";
+import { getIndustryPersona } from "./industries";
 
 const SYSTEM_PROMPT = `You are a helpful website assistant. Your job is to answer visitor questions using ONLY the information provided in the context below — which comes directly from this website's content.
 
@@ -18,6 +19,30 @@ export type RagMessage = {
 };
 
 /**
+ * Look up the bot's industry + the root website it was crawled from.
+ * This is what lets the agent say things like "On [CompanyName]'s site..."
+ * and apply industry-specific behaviour.
+ */
+async function getBotContext(botId: string) {
+  const bot = await db.bot.findUnique({
+    where: { botId },
+    select: { customerName: true, industry: true },
+  });
+
+  const website = await db.website.findFirst({
+    where: { botId, status: "ready" },
+    orderBy: { crawledAt: "desc" },
+    select: { url: true },
+  });
+
+  return {
+    customerName: bot?.customerName ?? "this company",
+    industry: bot?.industry ?? "general",
+    websiteUrl: website?.url ?? null,
+  };
+}
+
+/**
  * Full RAG pipeline:
  * 1. Embed the user query
  * 2. Search vector DB for relevant chunks
@@ -30,21 +55,25 @@ export async function ragStream(
 ): Promise<{ stream: ReadableStream; hasContext: boolean }> {
   const userQuery = messages[messages.length - 1]?.content ?? "";
 
-  // Step 1: Embed query
+  // Step 1: Bot identity + industry persona
+  const { customerName, industry, websiteUrl } = await getBotContext(botId);
+  const industryPersona = getIndustryPersona(industry);
+
+  // Step 2: Embed query
   const queryEmbedding = await embedText(userQuery);
 
-  // Step 2: Retrieve relevant chunks
-  const chunks = await searchChunks(botId, queryEmbedding, 5);
+  // Step 3: Retrieve relevant chunks
+  const chunks = await searchChunks(botId, queryEmbedding, 8);
   const hasContext = chunks.length > 0;
 
-  // Step 3: Build context block
+  // Step 4: Build context block
   const contextBlock = hasContext
     ? chunks
-        .map((c, i) => `[Source ${i + 1}: ${c.url}]\n${c.content}`)
-        .join("\n\n---\n\n")
+      .map((c, i) => `[Source ${i + 1}: ${c.url}]\n${c.content}`)
+      .join("\n\n---\n\n")
     : "No relevant content found.";
 
-  // Step 4: Build messages for LLM
+  // Step 5: Build messages for LLM
   const systemMessage = `${SYSTEM_PROMPT}\n\n=== WEBSITE CONTEXT ===\n${contextBlock}\n=== END CONTEXT ===`;
 
   const llmMessages = [
@@ -57,9 +86,9 @@ export async function ragStream(
     ? (process.env.GROQ_MODEL || "llama-3.3-70b-versatile")
     : "gpt-4o-mini";
 
-  // Step 5: Stream response
+  // Step 6: Stream response
   const completion = await openai.chat.completions.create({
-    model,
+    model: "llama3-8b--8192",
     messages: llmMessages,
     stream: true,
     max_tokens: 512,

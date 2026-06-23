@@ -160,7 +160,6 @@ export async function verifySignupOtp(
   await upsertBot({
     botId,
     customerName: name,
-    theme: "light",
     primaryColor: "#2563eb",
   });
 
