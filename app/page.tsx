@@ -8,9 +8,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      if (window.location.hostname === "localhost") {
-        setBaseUrl(window.location.origin);
-      }
+      setBaseUrl(window.location.origin);
     }
   }, []);
 

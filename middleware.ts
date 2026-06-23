@@ -7,7 +7,8 @@ export function middleware(request: NextRequest) {
   const isPublicRoute = publicRoutes.includes(pathname) ||
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/widget");
+    pathname.startsWith("/widget") ||
+    pathname.startsWith("/embed");
 
   if (isPublicRoute) {
     return NextResponse.next();
