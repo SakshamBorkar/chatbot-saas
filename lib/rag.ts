@@ -74,7 +74,17 @@ export async function ragStream(
     : "No relevant content found.";
 
   // Step 5: Build messages for LLM
-  const systemMessage = `${SYSTEM_PROMPT}\n\n=== WEBSITE CONTEXT ===\n${contextBlock}\n=== END CONTEXT ===`;
+  let systemMessage = SYSTEM_PROMPT;
+
+  if (customerName) {
+    systemMessage += `\n\nIdentity Context:\n- You are representing the company / customer: "${customerName}".`;
+  }
+  if (websiteUrl) {
+    systemMessage += `\n- The website URL you are active on is: ${websiteUrl}.`;
+  }
+
+  systemMessage += `\n\n=== INDUSTRY-SPECIFIC PERSONA ===\n${industryPersona}`;
+  systemMessage += `\n\n=== WEBSITE CONTEXT ===\n${contextBlock}\n=== END CONTEXT ===`;
 
   const llmMessages = [
     { role: "system" as const, content: systemMessage },
@@ -88,7 +98,7 @@ export async function ragStream(
 
   // Step 6: Stream response
   const completion = await openai.chat.completions.create({
-    model: "llama3-8b--8192",
+    model,
     messages: llmMessages,
     stream: true,
     max_tokens: 512,

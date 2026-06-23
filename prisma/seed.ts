@@ -13,11 +13,13 @@ async function main() {
       botId: "school001",
       customerName: "School Assistant",
       primaryColor: "#16a34a",
+      industry: "education",
     },
     {
       botId: "school002",
       customerName: "University Support",
       primaryColor: "#7c3aed",
+      industry: "education",
     },
   ];
 
