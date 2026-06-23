@@ -12,19 +12,25 @@ export type ChatMessage = {
 type ChatbotProps = {
   botId: string;
   primaryColor?: string;
+  theme?: "light" | "dark";
   botName?: string;
+  apiBase?: string;
 };
 
 export default function Chatbot({
   botId,
   primaryColor = "#2563eb",
+  theme = "light",
   botName = "Assistant",
+  apiBase = "",
 }: ChatbotProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId] = useState(() => crypto.randomUUID());
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const isDark = theme === "dark";
 
 
 
@@ -53,7 +59,7 @@ export default function Chatbot({
     ]);
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch(`${apiBase}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,12 +131,12 @@ export default function Chatbot({
     }
   };
 
-  const bg = "#ffffff";
+  const bg = isDark ? "#1f2937" : "#ffffff";
   const headerBg = primaryColor;
-  const inputBg = "#f9fafb";
-  const inputBorder = "#e5e7eb";
-  const textColor = "#111827";
-  const placeholderColor = "#6b7280";
+  const inputBg = isDark ? "#374151" : "#f9fafb";
+  const inputBorder = isDark ? "#4b5563" : "#e5e7eb";
+  const textColor = isDark ? "#f9fafb" : "#111827";
+  const placeholderColor = isDark ? "#9ca3af" : "#6b7280";
 
   return (
     <div

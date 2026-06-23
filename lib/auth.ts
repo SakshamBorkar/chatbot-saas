@@ -3,6 +3,7 @@ import { db } from "./db";
 import { upsertBot } from "./bots";
 import { generateOtp, sendOtpEmail } from "./mailer";
 import { v4 as uuidv4 } from "uuid";
+import { isValidIndustry } from "./industries";
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_OTP_ATTEMPTS = 5;
@@ -35,18 +36,26 @@ export type SafeUser = {
   name: string;
   phone: string;
   email: string;
+  industry: string;
   botId: string;
   createdAt: Date;
 };
 
 function toSafeUser(user: {
-  id: string; name: string; phone: string; email: string; botId: string; createdAt: Date;
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  industry: string;
+  botId: string;
+  createdAt: Date;
 }): SafeUser {
   return {
     id: user.id,
     name: user.name,
     phone: user.phone,
     email: user.email,
+    industry: user.industry,
     botId: user.botId,
     createdAt: user.createdAt,
   };
@@ -58,6 +67,7 @@ export type RequestSignupOtpInput = {
   name: string;
   phone: string;
   email: string;
+  industry: string;
 };
 
 export type RequestOtpResult =
@@ -71,7 +81,7 @@ export type RequestOtpResult =
 export async function requestSignupOtp(
   input: RequestSignupOtpInput
 ): Promise<RequestOtpResult> {
-  const { name, phone, email } = input;
+  const { name, phone, email, industry } = input;
 
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) {
@@ -92,7 +102,7 @@ export async function requestSignupOtp(
       email,
       code,
       purpose: "signup",
-      payload: JSON.stringify({ name, phone }),
+      payload: JSON.stringify({ name, phone, industry }),
       expiresAt,
     },
   });
@@ -145,13 +155,19 @@ export async function verifySignupOtp(
   // Code is correct — consume it and create the account
   await db.otpCode.update({ where: { id: otp.id }, data: { consumed: true } });
 
-  const { name, phone } = JSON.parse(otp.payload ?? "{}") as { name: string; phone: string };
+  const { name, phone, industry } = JSON.parse(otp.payload ?? "{}") as {
+    name: string;
+    phone: string;
+    industry: string;
+  };
 
   // Double-check no race condition created the user already
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) {
     return { success: false, error: "An account with this email already exists. Try signing in instead." };
   }
+
+  const safeIndustry = isValidIndustry(industry) ? industry : "general";
 
   const botId = generateBotId(name);
   const sessionToken = generateSessionToken();
@@ -160,11 +176,13 @@ export async function verifySignupOtp(
   await upsertBot({
     botId,
     customerName: name,
+    industry: safeIndustry,
+    theme: "light",
     primaryColor: "#2563eb",
   });
 
   const user = await db.user.create({
-    data: { name, phone, email, botId, sessionToken },
+    data: { name, phone, email, industry: safeIndustry, botId, sessionToken },
   });
 
   return { success: true, user: toSafeUser(user), sessionToken };

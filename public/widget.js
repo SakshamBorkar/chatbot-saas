@@ -6,6 +6,7 @@
  *           data-bot-id="customer123" async></script>
  *
  * Optional attributes:
+ *   data-theme         "light" | "dark"          (default: loaded from bot config)
  *   data-primary-color "#hex"                     (default: loaded from bot config)
  *   data-position      "bottom-right"|"bottom-left" (default: "bottom-right")
  */
@@ -21,8 +22,11 @@
 
   var BASE_URL = (script.src || "").replace(/\/widget\.js.*$/, "");
   var botId = script.getAttribute("data-bot-id");
+  var overrideTheme = script.getAttribute("data-theme");
   var overrideColor = script.getAttribute("data-primary-color");
   var position = script.getAttribute("data-position") || "bottom-right";
+  // data-mode="rag" loads the knowledge-base chatbot
+  var mode = script.getAttribute("data-mode") || "chat";
 
   if (!botId) {
     console.warn("[ChatWidget] data-bot-id is required.");
@@ -113,9 +117,11 @@
     iframe = document.createElement("iframe");
 
     var params = new URLSearchParams({ botId: botId });
+    if (overrideTheme) params.set("theme", overrideTheme);
     if (overrideColor) params.set("primaryColor", overrideColor);
 
-    iframe.src = BASE_URL + "/embed?" + params.toString();
+    var embedPath = mode === "rag" ? "/embed/rag?" : "/embed?";
+    iframe.src = BASE_URL + embedPath + params.toString();
     iframe.title = "Chat widget";
     Object.assign(iframe.style, {
       width: "100%",

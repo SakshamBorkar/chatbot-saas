@@ -9,7 +9,16 @@ type User = {
   name: string;
   phone: string;
   email: string;
+  industry: string;
   botId: string;
+  createdAt: string;
+};
+
+type WebsiteStatus = {
+  id: string;
+  url: string;
+  status: "pending" | "crawling" | "ready" | "error";
+  crawledAt: string | null;
   createdAt: string;
 };
 
@@ -19,20 +28,36 @@ export default function DashboardPage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Website / knowledge-base crawling state
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [websites, setWebsites] = useState<WebsiteStatus[]>([]);
+  const [crawlError, setCrawlError] = useState("");
+  const [crawling, setCrawling] = useState(false);
+
   const colors = themeColors.light;
 
   useEffect(() => {
-    const stored = localStorage.getItem("user");
-    if (!stored) {
-      router.replace("/login");
-      return;
-    }
-    setUser(JSON.parse(stored));
-    setLoading(false);
+    // Verify session via cookie-based /api/auth/me
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (!res.ok) {
+          router.replace("/login");
+          return;
+        }
+        const data = await res.json();
+        setUser(data.user);
+        localStorage.setItem("user", JSON.stringify(data.user));
+      } catch {
+        router.replace("/login");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [router]);
 
   const logout = async () => {
-    await fetch("/api/auth/me", { method: "DELETE" });
+    await fetch("/api/auth/logout", { method: "POST" });
     localStorage.removeItem("user");
     router.replace("/login");
   };
@@ -43,7 +68,62 @@ export default function DashboardPage() {
     setTimeout(() => setCopied(null), 2000);
   };
 
+  // Fetch existing crawl status for this bot
+  const fetchWebsites = async (botId: string) => {
+    try {
+      const res = await fetch(`/api/crawl?botId=${encodeURIComponent(botId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setWebsites(data.websites ?? []);
+      }
+    } catch {
+      // silent — non-critical
+    }
+  };
 
+  useEffect(() => {
+    if (user) fetchWebsites(user.botId);
+  }, [user]);
+
+  // Poll while a crawl is in progress
+  useEffect(() => {
+    const hasActiveCrawl = websites.some(
+      (w) => w.status === "pending" || w.status === "crawling"
+    );
+    if (!hasActiveCrawl || !user) return;
+
+    const interval = setInterval(() => fetchWebsites(user.botId), 3000);
+    return () => clearInterval(interval);
+  }, [websites, user]);
+
+  const handleCrawl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !websiteUrl.trim()) return;
+
+    setCrawlError("");
+    setCrawling(true);
+
+    try {
+      const res = await fetch("/api/crawl", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ botId: user.botId, url: websiteUrl.trim() }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setCrawlError(data.error ?? "Failed to start crawl.");
+        return;
+      }
+
+      setWebsiteUrl("");
+      await fetchWebsites(user.botId);
+    } catch {
+      setCrawlError("Network error. Please try again.");
+    } finally {
+      setCrawling(false);
+    }
+  };
 
   if (loading || !user) {
     return (
@@ -98,7 +178,6 @@ export default function DashboardPage() {
             </div>
           ))}
         </nav>
-        <div style={{ flex: 1 }} />
         <button onClick={logout} style={pageStyles.logoutBtn}>
           ↩ Sign out
         </button>
@@ -136,6 +215,56 @@ export default function DashboardPage() {
           </button>
         </div>
 
+        {/* Connect website / knowledge base */}
+        <div style={pageStyles.section}>
+          <h2 style={pageStyles.sectionTitle}>Connect your website</h2>
+          <p style={pageStyles.sectionDesc}>
+            Crawl your website so the RAG chatbot can answer questions using your own content.
+            This powers the <code style={pageStyles.code}>data-mode="rag"</code> embed snippet below.
+          </p>
+
+          <form onSubmit={handleCrawl} style={pageStyles.crawlForm}>
+            <input
+              type="url"
+              placeholder="https://your-website.com"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              required
+              style={pageStyles.crawlInput}
+            />
+            <button
+              type="submit"
+              disabled={crawling}
+              style={{ ...pageStyles.crawlBtn, opacity: crawling ? 0.7 : 1 }}
+            >
+              {crawling ? "Starting…" : "Crawl website"}
+            </button>
+          </form>
+          {crawlError && <div style={pageStyles.errorBox}>{crawlError}</div>}
+
+          {websites.length > 0 && (
+            <div style={pageStyles.websiteList}>
+              {websites.map((w) => (
+                <div key={w.id} style={pageStyles.websiteRow}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={pageStyles.websiteUrl}>{w.url}</div>
+                    <div style={pageStyles.websiteMeta}>
+                      {w.status === "ready" && w.crawledAt
+                        ? `Indexed ${new Date(w.crawledAt).toLocaleString()}`
+                        : w.status === "crawling"
+                        ? "Crawling in progress…"
+                        : w.status === "error"
+                        ? "Crawl failed — try again"
+                        : "Queued…"}
+                    </div>
+                  </div>
+                  <StatusBadge status={w.status} colors={colors} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Account info */}
         <div style={pageStyles.section}>
           <h2 style={pageStyles.sectionTitle}>Account details</h2>
@@ -144,6 +273,7 @@ export default function DashboardPage() {
               { label: "Name", value: user.name },
               { label: "Email", value: user.email },
               { label: "Phone", value: user.phone },
+              { label: "Industry", value: industryLabel(user.industry) },
               {
                 label: "Member since",
                 value: new Date(user.createdAt).toLocaleDateString("en-IN", {
@@ -178,7 +308,11 @@ export default function DashboardPage() {
 
           <SnippetCard
             title="RAG chatbot (website-aware)"
-            description="Answers questions using your website's content. Requires crawling first via /api/crawl."
+            description={
+              websites.some((w) => w.status === "ready")
+                ? `Answers questions using your crawled website content. ${websites.filter((w) => w.status === "ready").length} site(s) indexed.`
+                : "⚠️ No website indexed yet — crawl your site above first, then paste this snippet."
+            }
             snippet={ragSnippet}
             onCopy={() => copy(ragSnippet, "rag")}
             copied={copied === "rag"}
@@ -187,6 +321,45 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+const INDUSTRY_LABELS: Record<string, string> = {
+  pharma: "💊 Pharma & Healthcare",
+  education: "🎓 Education",
+  infrastructure: "🏗️ Infrastructure & Construction",
+  retail: "🛍️ Retail & E-commerce",
+  finance: "🏦 Finance & Banking",
+  general: "🏢 Other / General Business",
+};
+
+function industryLabel(key: string): string {
+  return INDUSTRY_LABELS[key] ?? key;
+}
+
+function StatusBadge({ status, colors }: { status: WebsiteStatus["status"]; colors: typeof themeColors.light }) {
+  const map: Record<WebsiteStatus["status"], { bg: string; color: string; label: string }> = {
+    ready: { bg: `${colors.success}15`, color: colors.success, label: "✓ Ready" },
+    crawling: { bg: "#fef9c3", color: "#ca8a04", label: "⏳ Crawling" },
+    pending: { bg: "#e0e7ff", color: "#4f46e5", label: "Queued" },
+    error: { bg: `${colors.error}15`, color: colors.error, label: "✗ Error" },
+  };
+  const s = map[status];
+  return (
+    <span
+      style={{
+        backgroundColor: s.bg,
+        color: s.color,
+        fontSize: "11px",
+        fontWeight: 700,
+        padding: "4px 10px",
+        borderRadius: "999px",
+        whiteSpace: "nowrap" as const,
+        flexShrink: 0,
+      }}
+    >
+      {s.label}
+    </span>
   );
 }
 
@@ -372,6 +545,71 @@ function getStyles(colors: typeof themeColors.light) {
       fontFamily: "monospace",
       fontSize: "13px",
       color: colors.error,
+    },
+    crawlForm: {
+      display: "flex" as const,
+      gap: "10px",
+      marginBottom: "8px",
+    },
+    crawlInput: {
+      flex: 1,
+      padding: "10px 14px",
+      borderRadius: "8px",
+      border: `1.5px solid ${colors.border}`,
+      fontSize: "14px",
+      color: colors.text,
+      backgroundColor: colors.bgSecondary,
+      outline: "none",
+    },
+    crawlBtn: {
+      padding: "10px 20px",
+      borderRadius: "8px",
+      backgroundColor: colors.primary,
+      color: "#fff",
+      fontSize: "14px",
+      fontWeight: 600,
+      border: "none",
+      cursor: "pointer",
+      whiteSpace: "nowrap" as const,
+      flexShrink: 0,
+    },
+    errorBox: {
+      backgroundColor: `${colors.error}10`,
+      border: `1px solid ${colors.error}30`,
+      color: colors.error,
+      borderRadius: "8px",
+      padding: "10px 14px",
+      fontSize: "13px",
+      marginTop: "8px",
+    },
+    websiteList: {
+      display: "flex" as const,
+      flexDirection: "column" as const,
+      gap: "8px",
+      marginTop: "16px",
+    },
+    websiteRow: {
+      display: "flex" as const,
+      justifyContent: "space-between" as const,
+      alignItems: "center" as const,
+      backgroundColor: colors.bgSecondary,
+      border: `1px solid ${colors.border}`,
+      borderRadius: "10px",
+      padding: "12px 16px",
+      gap: "12px",
+    },
+    websiteUrl: {
+      fontSize: "13px",
+      fontWeight: 600,
+      color: colors.text,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap" as const,
+    },
+    websiteMeta: {
+      fontSize: "11.5px",
+      color: colors.textSecondary,
+      marginTop: "2px",
     },
   };
 }

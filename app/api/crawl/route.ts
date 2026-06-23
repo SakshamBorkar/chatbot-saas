@@ -6,6 +6,8 @@ import { crawlWebsite } from "@/lib/crawler";
 import { chunkText } from "@/lib/chunker";
 import { embedBatch, toVectorLiteral } from "@/lib/embeddings";
 
+export const maxDuration = 300;
+
 const CrawlRequestSchema = z.object({
   botId: z.string().min(1),
   url: z.string().url(),
@@ -33,6 +35,13 @@ export async function POST(req: NextRequest) {
   }
 
   const { botId, url } = parsed.data;
+
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json(
+      { error: "Server misconfiguration: OPENAI_API_KEY is not set (required for embeddings)." },
+      { status: 500 }
+    );
+  }
 
   // Validate bot
   const config = await getBotConfig(botId);
