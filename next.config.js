@@ -23,12 +23,12 @@ const nextConfig = {
     ];
 
     return [
-      // ── Global security headers for all pages ──
+      // ── Global security headers for all pages (EXCEPT /embed/*) ──
       {
-        source: "/(.*)",
+        source: "/((?!embed).*)",
         headers: [
           ...securityHeaders,
-          // Default: deny framing (overridden for /embed below)
+          // Default: deny framing for non-embed pages
           { key: "X-Frame-Options", value: "DENY" },
         ],
       },
@@ -43,12 +43,11 @@ const nextConfig = {
         ],
       },
 
-      // ── Embed page: allow framing ──
+      // ── Embed pages: allow framing (covers /embed, /embed/rag, etc.) ──
       {
-        source: "/embed",
+        source: "/embed/:path*",
         headers: [
           ...securityHeaders,
-          { key: "X-Frame-Options", value: "ALLOWALL" },
           { key: "Content-Security-Policy", value: "frame-ancestors *" },
         ],
       },
