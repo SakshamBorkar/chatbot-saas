@@ -66,11 +66,63 @@ export function toVectorLiteral(embedding: number[]): string {
  */
 export async function searchChunks(
   botId: string,
-  queryEmbedding: number[],
+  query: string,
   topK = 5,
   origin?: string
 ): Promise<{ content: string; url: string; similarity: number }[]> {
-  const vectorLiteral = toVectorLiteral(queryEmbedding);
+  const apiKey = process.env.OPENAI_API_KEY;
+  const hasApiKey = apiKey && apiKey !== "sk-...";
+
+  if (hasApiKey) {
+    try {
+      const queryEmbedding = await embedText(query);
+      const vectorLiteral = toVectorLiteral(queryEmbedding);
+
+      if (origin) {
+        const results = await db.$queryRaw<
+          { content: string; url: string; similarity: number }[]
+        >`
+          SELECT
+            c.content,
+            p.url,
+            1 - (c.embedding <=> ${vectorLiteral}::vector) AS similarity
+          FROM chunks c
+          JOIN pages p ON p.id = c.page_id
+          JOIN websites w ON w.id = p.website_id
+          WHERE w.bot_id = ${botId}
+            AND w.url = ${origin}
+            AND w.status = 'ready'
+            AND c.embedding IS NOT NULL
+          ORDER BY c.embedding <=> ${vectorLiteral}::vector
+          LIMIT ${topK}
+        `;
+        if (results.length > 0) return results;
+      }
+
+      const results = await db.$queryRaw<
+        { content: string; url: string; similarity: number }[]
+      >`
+        SELECT
+          c.content,
+          p.url,
+          1 - (c.embedding <=> ${vectorLiteral}::vector) AS similarity
+        FROM chunks c
+        JOIN pages p ON p.id = c.page_id
+        JOIN websites w ON w.id = p.website_id
+        WHERE w.bot_id = ${botId}
+          AND w.status = 'ready'
+          AND c.embedding IS NOT NULL
+        ORDER BY c.embedding <=> ${vectorLiteral}::vector
+        LIMIT ${topK}
+      `;
+      return results;
+    } catch (err) {
+      console.error("[embeddings] Vector search failed, falling back to text search:", err);
+    }
+  }
+
+  // Fallback Full Text Search (FTS) when no OpenAI key is set
+  const searchPattern = `%${query}%`;
 
   if (origin) {
     const results = await db.$queryRaw<
@@ -79,15 +131,17 @@ export async function searchChunks(
       SELECT
         c.content,
         p.url,
-        1 - (c.embedding <=> ${vectorLiteral}::vector) AS similarity
+        1.0 AS similarity
       FROM chunks c
       JOIN pages p ON p.id = c.page_id
       JOIN websites w ON w.id = p.website_id
       WHERE w.bot_id = ${botId}
         AND w.url = ${origin}
         AND w.status = 'ready'
-        AND c.embedding IS NOT NULL
-      ORDER BY c.embedding <=> ${vectorLiteral}::vector
+        AND (
+          c.content ILIKE ${searchPattern}
+          OR to_tsvector('english', c.content) @@ plainto_tsquery('english', ${query})
+        )
       LIMIT ${topK}
     `;
     if (results.length > 0) return results;
@@ -99,14 +153,16 @@ export async function searchChunks(
     SELECT
       c.content,
       p.url,
-      1 - (c.embedding <=> ${vectorLiteral}::vector) AS similarity
+      1.0 AS similarity
     FROM chunks c
     JOIN pages p ON p.id = c.page_id
     JOIN websites w ON w.id = p.website_id
     WHERE w.bot_id = ${botId}
       AND w.status = 'ready'
-      AND c.embedding IS NOT NULL
-    ORDER BY c.embedding <=> ${vectorLiteral}::vector
+      AND (
+        c.content ILIKE ${searchPattern}
+        OR to_tsvector('english', c.content) @@ plainto_tsquery('english', ${query})
+      )
     LIMIT ${topK}
   `;
 

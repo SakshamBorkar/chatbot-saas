@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import crypto from "crypto";
 import { db } from "@/lib/db";
 import { getBotConfig } from "@/lib/bots";
 import { crawlWebsite } from "@/lib/crawler";
@@ -36,12 +37,7 @@ export async function POST(req: NextRequest) {
 
   const { botId, url } = parsed.data;
 
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json(
-      { error: "Server misconfiguration: OPENAI_API_KEY is not set (required for embeddings)." },
-      { status: 500 }
-    );
-  }
+
 
   // Validate bot
   const config = await getBotConfig(botId);
@@ -92,25 +88,41 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Step 4: Embed in batches of 100 ──────────────────────────────────
+    const apiKey = process.env.OPENAI_API_KEY;
+    const hasApiKey = apiKey && apiKey !== "sk-...";
+
     const BATCH_SIZE = 100;
     for (let i = 0; i < allChunks.length; i += BATCH_SIZE) {
       const batch = allChunks.slice(i, i + BATCH_SIZE);
       const texts = batch.map((c) => c.content);
-      const embeddings = await embedBatch(texts);
+      const embeddings = hasApiKey ? await embedBatch(texts) : null;
 
-      // Insert chunks with embeddings using raw SQL (pgvector)
       for (let j = 0; j < batch.length; j++) {
-        const vectorLiteral = toVectorLiteral(embeddings[j]);
-        await db.$executeRaw`
-          INSERT INTO chunks (id, page_id, content, embedding, created_at)
-          VALUES (
-            gen_random_uuid(),
-            ${batch[j].pageId}::uuid,
-            ${batch[j].content},
-            ${vectorLiteral}::vector,
-            NOW()
-          )
-        `;
+        const vectorLiteral = (embeddings && embeddings[j]) ? toVectorLiteral(embeddings[j]) : null;
+        const chunkId = crypto.randomUUID();
+
+        if (vectorLiteral) {
+          await db.$executeRaw`
+            INSERT INTO chunks (id, page_id, content, embedding, created_at)
+            VALUES (
+              ${chunkId}::uuid,
+              ${batch[j].pageId}::uuid,
+              ${batch[j].content},
+              ${vectorLiteral}::vector,
+              NOW()
+            )
+          `;
+        } else {
+          await db.$executeRaw`
+            INSERT INTO chunks (id, page_id, content, created_at)
+            VALUES (
+              ${chunkId}::uuid,
+              ${batch[j].pageId}::uuid,
+              ${batch[j].content},
+              NOW()
+            )
+          `;
+        }
       }
     }
 

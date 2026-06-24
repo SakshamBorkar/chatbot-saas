@@ -95,11 +95,8 @@ export async function ragStream(
   // Step 1: Bot identity + industry persona
   const { customerName, industry, websiteUrl } = await getBotContext(botId);
 
-  // Step 2: Embed query
-  const queryEmbedding = await embedText(userQuery);
-
-  // Step 3: Retrieve relevant chunks
-  const chunks = await searchChunks(botId, queryEmbedding, 8, origin);
+  // Step 2 & 3: Retrieve relevant chunks directly using the raw query
+  const chunks = await searchChunks(botId, userQuery, 8, origin);
   const hasContext = chunks.length > 0;
 
   if (hasContext) {

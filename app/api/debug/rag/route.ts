@@ -61,8 +61,7 @@ export async function GET(req: NextRequest) {
   let vectorSearchResults: any[] = [];
   let vectorSearchError: string | null = null;
   try {
-    const embedding = await embedText(query);
-    vectorSearchResults = await searchChunks(botId, embedding, 5);
+    vectorSearchResults = await searchChunks(botId, query, 5);
   } catch (err) {
     vectorSearchError = String(err);
   }
