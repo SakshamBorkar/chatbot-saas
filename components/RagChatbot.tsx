@@ -30,9 +30,13 @@ export default function RagChatbot({
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sessionId] = useState(() => crypto.randomUUID());
+  const [sessionId, setSessionId] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const [crawlStatus, setCrawlStatus] = React.useState<string>("none");
+
+  useEffect(() => {
+    setSessionId(crypto.randomUUID());
+  }, []);
 
   const isDark = theme === "dark";
   const bg = isDark ? "#1f2937" : "#ffffff";

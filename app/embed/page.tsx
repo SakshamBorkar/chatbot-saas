@@ -35,23 +35,17 @@ export default async function EmbedPage({ searchParams }: EmbedPageProps) {
   const activeTheme = themeParam === "dark" || themeParam === "light" ? themeParam : config.theme;
 
   return (
-    <html lang="en">
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <style>{`
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          html, body { height: 100%; overflow: hidden; }
-        `}</style>
-      </head>
-      <body style={{ height: "100vh" }}>
-        <Chatbot
-          botId={config.botId}
-          primaryColor={config.primaryColor}
-          theme={activeTheme}
-          botName={config.name}
-          apiBase={process.env.NEXT_PUBLIC_BASE_URL ?? ""}
-        />
-      </body>
-    </html>
+    <div style={{ height: "100vh", width: "100%", overflow: "hidden" }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+      ` }} />
+      <Chatbot
+        botId={config.botId}
+        primaryColor={config.primaryColor}
+        theme={activeTheme}
+        botName={config.name}
+        apiBase={process.env.NEXT_PUBLIC_BASE_URL ?? ""}
+      />
+    </div>
   );
 }
