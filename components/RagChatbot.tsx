@@ -15,6 +15,7 @@ type RagChatbotProps = {
   theme?: "light" | "dark";
   botName?: string;
   apiBase?: string;
+  origin?:string;
 };
 
 export default function RagChatbot({
@@ -23,6 +24,7 @@ export default function RagChatbot({
   theme = "light",
   botName = "Assistant",
   apiBase = "",
+  origin="",
 }: RagChatbotProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -30,6 +32,7 @@ export default function RagChatbot({
   const [error, setError] = useState<string | null>(null);
   const [sessionId] = useState(() => crypto.randomUUID());
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [crawlStatus, setCrawlStatus] = React.useState<string>("none");
 
   const isDark = theme === "dark";
   const bg = isDark ? "#1f2937" : "#ffffff";
@@ -37,6 +40,64 @@ export default function RagChatbot({
   const inputBorder = isDark ? "#4b5563" : "#e5e7eb";
   const textColor = isDark ? "#f9fafb" : "#111827";
   const placeholderColor = isDark ? "#9ca3af" : "#6b7280";
+
+  // Fetch crawl status and handle auto-trigger
+  const checkAndCrawl = React.useCallback(async () => {
+    if (!origin) return;
+
+    try {
+      const res = await fetch(`${apiBase}/api/crawl?botId=${encodeURIComponent(botId)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = data.websites ?? [];
+      const match = list.find((w: any) => w.url === origin);
+
+      if (match) {
+        setCrawlStatus(match.status);
+      } else {
+        // Not found: trigger crawl
+        setCrawlStatus("pending");
+        fetch(`${apiBase}/api/crawl`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ botId, url: origin }),
+        }).catch((err) => console.error("Auto-crawl trigger failed:", err));
+        
+        setCrawlStatus("crawling");
+      }
+    } catch (err) {
+      console.error("Failed checking crawl status:", err);
+    }
+  }, [botId, origin, apiBase]);
+
+  useEffect(() => {
+    if (origin) {
+      checkAndCrawl();
+    }
+  }, [origin, checkAndCrawl]);
+
+  // Polling loop for pending/crawling status
+  useEffect(() => {
+    if (!origin || (crawlStatus !== "pending" && crawlStatus !== "crawling")) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/crawl?botId=${encodeURIComponent(botId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          const list = data.websites ?? [];
+          const match = list.find((w: any) => w.url === origin);
+          if (match) {
+            setCrawlStatus(match.status);
+          }
+        }
+      } catch (err) {
+        console.error("Error polling crawl status:", err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [botId, origin, crawlStatus, apiBase]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -74,6 +135,7 @@ export default function RagChatbot({
         body: JSON.stringify({
           botId,
           sessionId,
+          origin,
           messages: [...messages, userMsg].map(({ role, content }) => ({
             role,
             content,
@@ -204,6 +266,47 @@ export default function RagChatbot({
           </div>
         )}
       </div>
+
+      {/* Indexing Banners */}
+      {(crawlStatus === "crawling" || crawlStatus === "pending") && (
+        <div
+          style={{
+            backgroundColor: isDark ? "#374151" : "#eff6ff",
+            borderBottom: `1px solid ${isDark ? "#4b5563" : "#bfdbfe"}`,
+            color: isDark ? "#93c5fd" : "#1e40af",
+            padding: "8px 12px",
+            fontSize: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            fontWeight: 500,
+          }}
+        >
+          <span style={{ fontSize: "14px" }}>⏳</span>
+          <span>Indexing this website's content to answer your questions...</span>
+        </div>
+      )}
+
+      {crawlStatus === "error" && (
+        <div
+          style={{
+            backgroundColor: isDark ? "#7f1d1d" : "#fef2f2",
+            borderBottom: `1px solid ${isDark ? "#991b1b" : "#fecaca"}`,
+            color: isDark ? "#fca5a5" : "#991b1b",
+            padding: "8px 12px",
+            fontSize: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            fontWeight: 500,
+          }}
+        >
+          <span>⚠️</span>
+          <span>Automatic indexing failed. Please try crawling again from the dashboard.</span>
+        </div>
+      )}
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>

@@ -11,6 +11,7 @@ import { filterMessage } from "@/lib/content-filter";
 const RagChatSchema = z.object({
   botId: z.string().min(1),
   sessionId: z.string().optional(),
+  origin: z.string().optional(),
   messages: z
     .array(
       z.object({
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { botId, sessionId, messages } = parsed.data;
+  const { botId, sessionId, origin, messages } = parsed.data;
 
     // ── Content filter: check the latest user message ─────────────────────────
   const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Check knowledge base is ready
-  const ready = await hasReadyKnowledgeBase(botId);
+  const ready = await hasReadyKnowledgeBase(botId, origin);
   if (!ready) {
     return NextResponse.json(
       {
@@ -131,7 +132,7 @@ export async function POST(req: NextRequest) {
   trackEvent({ botId, eventType: "message_sent", sessionId: sid, ipAddress: ip });
 
   // Run RAG pipeline
-  const { stream } = await ragStream(botId, messages);
+  const { stream } = await ragStream(botId, messages, origin);
 
   trackEvent({ botId, eventType: "message_received", sessionId: sid });
 

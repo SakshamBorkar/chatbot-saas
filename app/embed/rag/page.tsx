@@ -3,13 +3,14 @@ import { getBotConfig } from "@/lib/bots";
 import RagChatbot from "@/components/RagChatbot";
 
 type RagEmbedPageProps = {
-  searchParams: Promise<{ botId?: string; theme?: string }>;
+  searchParams: Promise<{ botId?: string; theme?: string; origin?: string }>;
 };
 
 export default async function RagEmbedPage({ searchParams }: RagEmbedPageProps) {
   const resolvedSearchParams = await searchParams;
   const botId = resolvedSearchParams.botId ?? "";
   const themeParam = resolvedSearchParams.theme;
+  const origin = resolvedSearchParams.origin;
   const config = await getBotConfig(botId);
 
   if (!config) {
@@ -51,6 +52,7 @@ export default async function RagEmbedPage({ searchParams }: RagEmbedPageProps) 
           theme={activeTheme}
           botName={config.name}
           apiBase={process.env.NEXT_PUBLIC_BASE_URL ?? ""}
+          origin={origin}
         />
       </body>
     </html>

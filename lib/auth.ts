@@ -111,6 +111,13 @@ export async function requestSignupOtp(
     await sendOtpEmail(email, code, "signup");
   } catch (err) {
     console.error("[auth] Failed to send signup OTP email:", err);
+    if (process.env.NODE_ENV === "development") {
+      console.log("\n==================================================");
+      console.log(`⚠️ [DEV FALLBACK] OTP CODE FOR ${email.toUpperCase()}: ${code}`);
+      console.log(`Purpose: signup (Resend failed: ${(err as any).message || err})`);
+      console.log("==================================================\n");
+      return { success: true };
+    }
     return { success: false, error: "Failed to send verification email. Please try again." };
   }
 
@@ -212,6 +219,13 @@ export async function requestLoginOtp(email: string): Promise<RequestOtpResult> 
     await sendOtpEmail(email, code, "login");
   } catch (err) {
     console.error("[auth] Failed to send login OTP email:", err);
+    if (process.env.NODE_ENV === "development") {
+      console.log("\n==================================================");
+      console.log(`⚠️ [DEV FALLBACK] OTP CODE FOR ${email.toUpperCase()}: ${code}`);
+      console.log(`Purpose: login (Resend failed: ${(err as any).message || err})`);
+      console.log("==================================================\n");
+      return { success: true };
+    }
     return { success: false, error: "Failed to send sign-in email. Please try again." };
   }
 

@@ -49,8 +49,8 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ botId: botId, eventType: eventType }),
         keepalive: true,
-      }).catch(function () {});
-    } catch (e) {}
+      }).catch(function () { });
+    } catch (e) { }
   }
 
   // ── Build UI ───────────────────────────────────────────────────────────────
@@ -119,6 +119,15 @@
     var params = new URLSearchParams({ botId: botId });
     if (overrideTheme) params.set("theme", overrideTheme);
     if (overrideColor) params.set("primaryColor", overrideColor);
+
+    try {
+      var embedOrigin = window.location.origin;
+      if (embedOrigin) {
+        params.set("origin", embedOrigin);
+      }
+    } catch (e) {
+      console.warn("[ChatWidget] Failed to resolve location origin", e);
+    }
 
     var embedPath = mode === "rag" ? "/embed/rag?" : "/embed?";
     iframe.src = BASE_URL + embedPath + params.toString();

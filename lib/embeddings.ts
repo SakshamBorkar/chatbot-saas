@@ -67,9 +67,31 @@ export function toVectorLiteral(embedding: number[]): string {
 export async function searchChunks(
   botId: string,
   queryEmbedding: number[],
-  topK = 5
+  topK = 5,
+  origin?: string
 ): Promise<{ content: string; url: string; similarity: number }[]> {
   const vectorLiteral = toVectorLiteral(queryEmbedding);
+
+  if (origin) {
+    const results = await db.$queryRaw<
+      { content: string; url: string; similarity: number }[]
+    >`
+      SELECT
+        c.content,
+        p.url,
+        1 - (c.embedding <=> ${vectorLiteral}::vector) AS similarity
+      FROM chunks c
+      JOIN pages p ON p.id = c.page_id
+      JOIN websites w ON w.id = p.website_id
+      WHERE w.bot_id = ${botId}
+        AND w.url = ${origin}
+        AND w.status = 'ready'
+        AND c.embedding IS NOT NULL
+      ORDER BY c.embedding <=> ${vectorLiteral}::vector
+      LIMIT ${topK}
+    `;
+    if (results.length > 0) return results;
+  }
 
   const results = await db.$queryRaw<
     { content: string; url: string; similarity: number }[]

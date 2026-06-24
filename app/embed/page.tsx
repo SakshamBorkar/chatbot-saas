@@ -3,13 +3,14 @@ import { getBotConfig } from "@/lib/bots";
 import Chatbot from "@/components/Chatbot";
 
 type EmbedPageProps = {
-  searchParams: Promise<{ botId?: string; theme?: string }>;
+  searchParams: Promise<{ botId?: string; theme?: string; origin?: string }>;
 };
 
 export default async function EmbedPage({ searchParams }: EmbedPageProps) {
   const resolvedSearchParams = await searchParams;
   const botId = resolvedSearchParams.botId ?? "";
   const themeParam = resolvedSearchParams.theme;
+  const origin = resolvedSearchParams.origin;
 
   const config = await getBotConfig(botId);
 

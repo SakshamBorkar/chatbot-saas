@@ -87,7 +87,8 @@ Remember: Answer ONLY from the <context> above. Nothing else.`;
  */
 export async function ragStream(
   botId: string,
-  messages: RagMessage[]
+  messages: RagMessage[],
+  origin?: string
 ): Promise<{ stream: ReadableStream; hasContext: boolean }> {
   const userQuery = messages[messages.length - 1]?.content ?? "";
 
@@ -98,7 +99,7 @@ export async function ragStream(
   const queryEmbedding = await embedText(userQuery);
 
   // Step 3: Retrieve relevant chunks
-  const chunks = await searchChunks(botId, queryEmbedding, 8);
+  const chunks = await searchChunks(botId, queryEmbedding, 8, origin);
   const hasContext = chunks.length > 0;
 
   if (hasContext) {
@@ -156,7 +157,14 @@ export async function ragStream(
 /**
  * Check if a bot has a ready knowledge base.
  */
-export async function hasReadyKnowledgeBase(botId: string): Promise<boolean> {
+export async function hasReadyKnowledgeBase(botId: string, origin?: string): Promise<boolean> {
+  if (origin) {
+    const website = await db.website.findFirst({
+      where: { botId, url: origin, status: "ready" },
+    });
+    if (website) return true;
+  }
+
   const website = await db.website.findFirst({
     where: { botId, status: "ready" },
   });
