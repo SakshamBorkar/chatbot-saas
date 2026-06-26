@@ -1,6 +1,19 @@
+/**
+ * GET /api/debug/rag?botId=xxx&q=your+question
+ *
+ * Full diagnostic snapshot: bot config, crawl status, chunk counts,
+ * vector search results, and the current persona cache state.
+ *
+ * POST /api/debug/rag  { "clearCache": true }  — clears persona cache
+ * POST /api/debug/rag  { "industry": "edu" }   — clears cache for one industry
+ *
+ * ⚠️  Remove or auth-gate this route before going to production.
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { embedText, searchChunks } from "@/lib/embeddings";
+import { searchChunks } from "@/lib/embeddings";
+import { generateIndustryPersona, clearPersonaCache, getPersonaCacheSnapshot } from "@/lib/persona-generator";
 
 /**
  * GET /api/debug/rag?botId=xxx&q=tell+me+about+the+website
@@ -15,7 +28,7 @@ export async function GET(req: NextRequest) {
   const query = req.nextUrl.searchParams.get("q") ?? "tell me about the website";
 
   if (!botId) {
-    return NextResponse.json({ error: "botId required" }, { status: 400 });
+    return NextResponse.json({ error: "botId is required" }, { status: 400 });
   }
 
   // 1. Bot config
@@ -37,18 +50,18 @@ export async function GET(req: NextRequest) {
     where: { websiteId: { in: websiteIds } },
   });
 
-  const chunkCount = await db.$queryRaw<[{ count: string }]>`
+  const [totalChunks, embeddedChunks] = await Promise.all([
+    db.$queryRaw<[{ count: string }]>`
     SELECT COUNT(*)::text AS count FROM chunks c
     JOIN pages p ON p.id = c.page_id
-    WHERE p.website_id = ANY(${websiteIds}::uuid[])
-  `;
-
-  const chunksWithEmbedding = await db.$queryRaw<[{ count: string }]>`
+    WHERE p.website_id = ANY(${websiteIds}::text[])
+  `,
+    db.$queryRaw<[{ count: string }]>`
     SELECT COUNT(*)::text AS count FROM chunks c
     JOIN pages p ON p.id = c.page_id
-    WHERE p.website_id = ANY(${websiteIds}::uuid[])
+    WHERE p.website_id = ANY(${websiteIds}::text[])
       AND c.embedding IS NOT NULL
-  `;
+  `]);
 
   // 4. Sample pages stored
   const samplePages = await db.page.findMany({
@@ -58,12 +71,27 @@ export async function GET(req: NextRequest) {
   });
 
   // 5. Run a test vector search
-  let vectorSearchResults: any[] = [];
-  let vectorSearchError: string | null = null;
+  let vectorResults: unknown[] = [];
+  let vectorError: string | null = null;
   try {
-    vectorSearchResults = await searchChunks(botId, query, 5);
+    const raw = await searchChunks(botId, query, 5);
+    vectorResults = raw.map((r) => ({
+      url: r.url,
+      similarity: Number(r.similarity).toFixed(4),
+      preview: r.content.slice(0, 200),
+    }))
   } catch (err) {
-    vectorSearchError = String(err);
+    vectorError = String(err);
+  }
+
+  let generatedPersona: string | null = null;
+  let personaError: string | null = null;
+  if (bot?.industry) {
+    try {
+      generatedPersona = await generateIndustryPersona(bot.industry);
+    } catch (err) {
+      personaError = String(err);
+    }
   }
 
   return NextResponse.json({
@@ -71,8 +99,8 @@ export async function GET(req: NextRequest) {
     crawlStatus: {
       websites,
       pageCount,
-      totalChunks: chunkCount[0]?.count ?? "0",
-      chunksWithEmbedding: chunksWithEmbedding[0]?.count ?? "0",
+      totalChunks: totalChunks[0]?.count ?? "0",
+      chunksWithEmbedding: embeddedChunks[0]?.count ?? "0",
     },
     samplePages: samplePages.map((p) => ({
       url: p.url,
@@ -81,12 +109,35 @@ export async function GET(req: NextRequest) {
     })),
     vectorSearch: {
       query,
-      error: vectorSearchError,
-      results: vectorSearchResults.map((r) => ({
-        url: r.url,
-        similarity: r.similarity,
-        contentPreview: r.content.slice(0, 200),
-      })),
+      error: vectorError,
+      results: vectorResults,
+    },
+    personaCache: {
+      snapshot: getPersonaCacheSnapshot(),
+      generatedForThisBot: generatedPersona,
+      error: personaError,
     },
   });
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+
+  if (body.clearCache === true) {
+    clearPersonaCache();
+    return NextResponse.json({ success: true, message: "Full persona cache cleared." });
+  }
+
+  if (typeof body.industry === "string") {
+    clearPersonaCache(body.industry);
+    return NextResponse.json({
+      success: true,
+      message: `Persona cache cleared for industry="${body.industry}".`,
+    });
+  }
+
+  return NextResponse.json(
+    { error: "Pass { clearCache: true } or { industry: 'key' }" },
+    { status: 400 }
+  );
 }

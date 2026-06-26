@@ -139,7 +139,22 @@
     });
     iframe.setAttribute("loading", "lazy");
     iframe.setAttribute("allow", "");
-    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms");
+    
+    // Conditionally apply sandbox. If same-origin (e.g. local development),
+    // sandboxing causes a console warning and offers no security benefits.
+    var isSameOrigin = false;
+    try {
+      var parentOrigin = window.location.origin;
+      if (!BASE_URL || BASE_URL.indexOf("://") === -1 || BASE_URL.indexOf(parentOrigin) === 0) {
+        isSameOrigin = true;
+      }
+    } catch (e) {
+      // Fallback
+    }
+
+    if (!isSameOrigin) {
+      iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms");
+    }
 
     container.appendChild(iframe);
     document.body.appendChild(container);
