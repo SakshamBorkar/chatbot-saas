@@ -39,9 +39,9 @@ export type FilterResult =
 function getBlockedReply(industry?: string): string {
   if (industry && industry !== "general") {
     const label = getIndustryLabel(industry);
-    return `I'm sorry, I can only answer questions related to ${label} content. I'm not able to help with that topic.`;
+    return `I'm sorry, I can only answer questions related to ${label} content. I'm not able to help with this topic.`;
   }
-  return "I'm sorry, I can only answer questions related to this website's content. I'm not able to help with that topic.";
+  return "I'm sorry, I can only answer questions related to specific content. I'm not able to help with this topic.";
 }
 
 /**
