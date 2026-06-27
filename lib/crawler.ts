@@ -10,7 +10,7 @@ export type CrawledPage = {
 };
 
 const MAX_PAGES = 50;
-const FETCH_TIMEOUT_MS = 8000;
+const FETCH_TIMEOUT_MS = 15000;
 
 /** Tags whose inner content we discard entirely */
 const STRIP_TAGS = [
