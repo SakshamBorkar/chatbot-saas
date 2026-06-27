@@ -113,7 +113,7 @@ export async function crawlWebsite(rootUrl: string): Promise<CrawledPage[]> {
       const html = await res.text();
       const content = extractText(html);
 
-      if (content.length > 100) {
+      if (content.length > 10) {
         pages.push({ url, content });
       }
 
@@ -124,8 +124,8 @@ export async function crawlWebsite(rootUrl: string): Promise<CrawledPage[]> {
           queue.push(link);
         }
       }
-    } catch {
-      // Timeout or network error — skip page
+    } catch (err) {
+      console.error(`[crawler] Failed to fetch ${url}:`, err);
     }
   }
 
