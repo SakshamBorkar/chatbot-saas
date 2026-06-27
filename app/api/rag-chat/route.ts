@@ -99,17 +99,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Bot not found or inactive" }, { status: 404 });
   }
 
-  // Check knowledge base is ready
-  const ready = await hasReadyKnowledgeBase(botId, origin);
-  if (!ready) {
-    return NextResponse.json(
-      {
-        error: "knowledge_base_not_ready",
-        message: "Knowledge base is still being prepared. Please try again later.",
-      },
-      { status: 503 }
-    );
-  }
+
 
   // Persist conversation (fire-and-forget)
   const sid = sessionId ?? crypto.randomUUID();
