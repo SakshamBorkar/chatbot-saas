@@ -26,6 +26,14 @@ import { generateIndustryPersona, clearPersonaCache, getPersonaCacheSnapshot } f
 export async function GET(req: NextRequest) {
   const botId = req.nextUrl.searchParams.get("botId");
   const query = req.nextUrl.searchParams.get("q") ?? "tell me about the website";
+  const listAll = req.nextUrl.searchParams.get("listAll") === "true";
+
+  if (listAll) {
+    const allBots = await db.bot.findMany({
+      include: { websites: true },
+    });
+    return NextResponse.json({ allBots });
+  }
 
   if (!botId) {
     return NextResponse.json({ error: "botId is required" }, { status: 400 });

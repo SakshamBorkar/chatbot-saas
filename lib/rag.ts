@@ -176,10 +176,19 @@ export async function ragStream(
  */
 export async function hasReadyKnowledgeBase(botId: string, origin?: string): Promise<boolean> {
   if (origin) {
-    const website = await db.website.findFirst({
-      where: { botId, url: origin, status: "ready" },
+    const websites = await db.website.findMany({
+      where: { botId, status: "ready" },
     });
-    if (website) return true;
+    const match = websites.some((w) => {
+      try {
+        return new URL(w.url).hostname === new URL(origin).hostname;
+      } catch {
+        const clean = (url: string) => url.replace(/https?:\/\//, "").split("/")[0].split(":")[0];
+        return clean(w.url) === clean(origin);
+      }
+    });
+    if (match) return true;
+    return false; // Strictly enforce that the website being queried is the one the bot is currently embedded on
   }
 
   const website = await db.website.findFirst({

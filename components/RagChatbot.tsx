@@ -45,6 +45,18 @@ export default function RagChatbot({
   const textColor = isDark ? "#f9fafb" : "#111827";
   const placeholderColor = isDark ? "#9ca3af" : "#6b7280";
 
+  // Helper to match website domain dynamically
+  const isSameHostname = (urlA: string, urlB: string): boolean => {
+    try {
+      const hostA = new URL(urlA).hostname;
+      const hostB = new URL(urlB).hostname;
+      return hostA === hostB;
+    } catch {
+      const clean = (url: string) => url.replace(/https?:\/\//, "").split("/")[0].split(":")[0];
+      return clean(urlA) === clean(urlB);
+    }
+  };
+
   // Fetch crawl status and handle auto-trigger
   const checkAndCrawl = React.useCallback(async () => {
     if (!origin) return;
@@ -54,7 +66,7 @@ export default function RagChatbot({
       if (!res.ok) return;
       const data = await res.json();
       const list = data.websites ?? [];
-      const match = list.find((w: any) => w.url === origin);
+      const match = list.find((w: any) => isSameHostname(w.url, origin));
 
       if (match) {
         setCrawlStatus(match.status);
@@ -90,7 +102,7 @@ export default function RagChatbot({
         if (res.ok) {
           const data = await res.json();
           const list = data.websites ?? [];
-          const match = list.find((w: any) => w.url === origin);
+          const match = list.find((w: any) => isSameHostname(w.url, origin));
           if (match) {
             setCrawlStatus(match.status);
           }
@@ -308,7 +320,36 @@ export default function RagChatbot({
           }}
         >
           <span>⚠️</span>
-          <span>Automatic indexing failed. Please try crawling again from the dashboard.</span>
+          <span>Automatic indexing failed.</span>
+          <button
+            onClick={async () => {
+              setCrawlStatus("pending");
+              try {
+                const res = await fetch(`${apiBase}/api/crawl`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ botId, url: origin }),
+                });
+                if (!res.ok) throw new Error();
+                setCrawlStatus("crawling");
+              } catch (e) {
+                setCrawlStatus("error");
+              }
+            }}
+            style={{
+              backgroundColor: primaryColor,
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              padding: "2px 8px",
+              fontSize: "11px",
+              cursor: "pointer",
+              fontWeight: 600,
+              marginLeft: "4px",
+            }}
+          >
+            Retry
+          </button>
         </div>
       )}
 

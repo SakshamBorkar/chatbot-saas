@@ -46,8 +46,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { botId, url } = parsed.data;
-
-
+  const normalizedUrl = url.replace(/\/$/, "");
 
   // Validate bot
   const config = await getBotConfig(botId);
@@ -57,9 +56,9 @@ export async function POST(req: NextRequest) {
 
   // Create or reset website record
   const website = await db.website.upsert({
-    where: { botId_url: { botId, url } },
+    where: { botId_url: { botId, url: normalizedUrl } },
     update: { status: "crawling", crawledAt: null },
-    create: { botId, url, status: "crawling" },
+    create: { botId, url: normalizedUrl, status: "crawling" },
   });
 
   // Delete old pages/chunks for this website (cascade handles chunks)
@@ -67,7 +66,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // ── Step 1: Crawl ─────────────────────────────────────────────────────
-    const crawledPages = await crawlWebsite(url);
+    const crawledPages = await crawlWebsite(normalizedUrl);
 
     if (crawledPages.length === 0) {
       await db.website.update({
