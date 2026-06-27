@@ -133,7 +133,7 @@ export default function DashboardPage() {
             <div style={pageStyles.botIdLabel}>Your Bot ID</div>
             <div style={pageStyles.botIdValue}>{user.botId}</div>
             <div style={pageStyles.botIdHint}>
-              This is your unique identifier — use it in the embed snippet below.
+              This is your unique identifier - use it in the embed snippet below.
             </div>
           </div>
           <button

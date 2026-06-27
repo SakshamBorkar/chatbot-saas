@@ -21,7 +21,18 @@ export default function LoginPage() {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // Check if session is already active
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          router.replace("/dashboard");
+        }
+      } catch {
+        // Not authenticated
+      }
+    })();
+  }, [router]);
 
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,7 +89,7 @@ export default function LoginPage() {
       }
 
       localStorage.setItem("user", JSON.stringify(data.user));
-      router.push("/dashboard");
+      router.replace("/dashboard");
     } catch {
       setError("Network error. Please try again.");
     } finally {

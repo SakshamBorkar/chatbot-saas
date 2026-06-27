@@ -29,7 +29,18 @@ export default function SignupPage() {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // Check if session is already active
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          router.replace("/dashboard");
+        }
+      } catch {
+        // Not authenticated
+      }
+    })();
+  }, [router]);
 
   const update = (field: string, value: string) =>
     setForm((p) => ({ ...p, [field]: value }));
@@ -89,7 +100,7 @@ export default function SignupPage() {
       }
 
       localStorage.setItem("user", JSON.stringify(data.user));
-      router.push("/dashboard");
+      router.replace("/dashboard");
     } catch {
       setError("Network error. Please try again.");
     } finally {
