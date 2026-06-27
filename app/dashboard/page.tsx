@@ -108,7 +108,7 @@ export default function DashboardPage() {
           ))}
         </nav>
         <button onClick={logout} style={pageStyles.logoutBtn}>
-          ↩ Sign out
+          🚪 Sign out
         </button>
       </div>
 
@@ -168,26 +168,17 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Embed snippets */}
+        {/* Embed snippet */}
         <div style={pageStyles.section}>
           <h2 style={pageStyles.sectionTitle}>Embed your chatbot</h2>
           <p style={pageStyles.sectionDesc}>
-            Paste one of these script tags before the closing{" "}
+            Paste this script tag before the closing{" "}
             <code style={pageStyles.code}>&lt;/body&gt;</code> tag on any website.
           </p>
 
           <SnippetCard
-            title="Basic chatbot"
-            description="General-purpose AI assistant. No knowledge base required."
-            snippet={basicSnippet}
-            onCopy={() => copy(basicSnippet, "basic")}
-            copied={copied === "basic"}
-            colors={colors}
-          />
-
-          <SnippetCard
-            title="RAG chatbot (website-aware)"
-            description="Answers questions using your website's content. Automatically indexes your site when embedded."
+            title="AI Chatbot"
+            description="Automatically acts as an assistant for your configured industry. Paste this script tag on any website."
             snippet={ragSnippet}
             onCopy={() => copy(ragSnippet, "rag")}
             copied={copied === "rag"}
@@ -296,13 +287,19 @@ function getStyles(colors: typeof themeColors.light) {
       cursor: "pointer",
     },
     logoutBtn: {
+      display: "flex" as const,
+      alignItems: "center" as const,
+      gap: "8px",
       background: "none",
-      border: "none",
+      border: `1px solid ${colors.border}`,
       color: colors.textSecondary,
-      fontSize: "13px",
+      fontSize: "14px",
+      fontWeight: 600,
       cursor: "pointer",
-      textAlign: "left" as const,
-      padding: "8px 12px",
+      justifyContent: "center" as const,
+      padding: "10px 16px",
+      borderRadius: "8px",
+      marginTop: "auto",
     },
     main: {
       flex: 1,
