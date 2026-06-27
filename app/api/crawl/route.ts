@@ -13,6 +13,17 @@ const CrawlRequestSchema = z.object({
   url: z.string().url(),
 });
 
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
+}
+
 /**
  * POST /api/crawl
  * Crawl a website and build the vector knowledge base for a bot.
