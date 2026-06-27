@@ -48,6 +48,7 @@ export default async function RagEmbedPage({ searchParams }: RagEmbedPageProps) 
         botName={config.name}
         apiBase={process.env.NEXT_PUBLIC_BASE_URL ?? ""}
         origin={origin}
+        industry={config.industry}
       />
     </div>
   );

@@ -30,20 +30,27 @@ const BLOCKED_PATTERNS: RegExp[] = [
   /\b(nigger|faggot|chink|spic|kike|towelhead|white\s+power|nazi|heil\s+hitler)\b/i,
 ]
 
+import { getIndustryLabel } from "./industries";
+
 export type FilterResult =
   | { blocked: false }
   | { blocked: true; reason: "keyword" | "ai_classifier"; message: string };
 
-const BLOCKED_REPLY =
-  "I'm sorry, I can only answer questions related to this website's content. I'm not able to help with that topic.";
+function getBlockedReply(industry?: string): string {
+  if (industry && industry !== "general") {
+    const label = getIndustryLabel(industry);
+    return `I'm sorry, I can only answer questions related to ${label} content. I'm not able to help with that topic.`;
+  }
+  return "I'm sorry, I can only answer questions related to this website's content. I'm not able to help with that topic.";
+}
 
 /**
  * Layer 1: fast keyword check — runs synchronously, no network call.
  */
-export function keywordFilter(text: string): FilterResult {
+export function keywordFilter(text: string, industry?: string): FilterResult {
   for (const pattern of BLOCKED_PATTERNS) {
     if (pattern.test(text)) {
-      return { blocked: true, reason: "keyword", message: BLOCKED_REPLY };
+      return { blocked: true, reason: "keyword", message: getBlockedReply(industry) };
     }
   }
   return { blocked: false };
@@ -72,7 +79,7 @@ Reply with ONLY one word: SAFE or UNSAFE. No explanation.`;
  * Layer 2: AI-based classifier for edge cases the keyword list misses.
  * Only called when Layer 1 passes — adds ~200ms latency.
  */
-export async function aiClassifier(text: string): Promise<FilterResult> {
+export async function aiClassifier(text: string, industry?: string): Promise<FilterResult> {
   try {
     const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
     const res = await groq.chat.completions.create({
@@ -88,7 +95,7 @@ export async function aiClassifier(text: string): Promise<FilterResult> {
     const verdict = res.choices[0]?.message?.content?.trim().toUpperCase();
 
     if (verdict === "UNSAFE") {
-      return { blocked: true, reason: "ai_classifier", message: BLOCKED_REPLY };
+      return { blocked: true, reason: "ai_classifier", message: getBlockedReply(industry) };
     }
 
     return { blocked: false };
@@ -105,7 +112,7 @@ export async function aiClassifier(text: string): Promise<FilterResult> {
  * Layer 1 is synchronous and instant.
  * Layer 2 only runs if Layer 1 passes.
  */
-export async function filterMessage(text: string): Promise<FilterResult> {
+export async function filterMessage(text: string, industry?: string): Promise<FilterResult> {
   // Trim and length-check first
   const trimmed = text.trim();
   if (trimmed.length === 0) {
@@ -120,11 +127,11 @@ export async function filterMessage(text: string): Promise<FilterResult> {
   }
 
   // Layer 1: keyword blocklist
-  const keywordResult = keywordFilter(trimmed);
+  const keywordResult = keywordFilter(trimmed, industry);
   if (keywordResult.blocked) return keywordResult;
 
   // Layer 2: AI classifier
-  const aiResult = await aiClassifier(trimmed);
+  const aiResult = await aiClassifier(trimmed, industry);
   return aiResult;
 }
 

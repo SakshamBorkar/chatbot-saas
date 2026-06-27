@@ -61,10 +61,16 @@ export async function POST(req: NextRequest) {
 
   const { botId, sessionId, origin, messages } = parsed.data;
 
-    // ── Content filter: check the latest user message ─────────────────────────
+  // Validate bot
+  const config = await getBotConfig(botId);
+  if (!config) {
+    return NextResponse.json({ error: "Bot not found or inactive" }, { status: 404 });
+  }
+
+  // ── Content filter: check the latest user message ─────────────────────────
   const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
   if (lastUserMessage) {
-    const filterResult = await filterMessage(lastUserMessage.content);
+    const filterResult = await filterMessage(lastUserMessage.content, config.industry);
     if (filterResult.blocked) {
       // Return a clean SSE stream with the blocked message so the
       // frontend handles it identically to a normal response
@@ -91,12 +97,6 @@ export async function POST(req: NextRequest) {
         },
       });
     }
-  }
-
-  // Validate bot
-  const config = await getBotConfig(botId);
-  if (!config) {
-    return NextResponse.json({ error: "Bot not found or inactive" }, { status: 404 });
   }
 
 
